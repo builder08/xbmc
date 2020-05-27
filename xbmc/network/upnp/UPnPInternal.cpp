@@ -313,9 +313,8 @@ PopulateObjectFromTag(CVideoInfoTag&         tag,
     for (unsigned int index = 0; index < tag.m_genre.size(); index++)
       object.m_Affiliation.genres.Add(tag.m_genre.at(index).c_str());
 
-    for(CVideoInfoTag::iCast it = tag.m_cast.begin();it != tag.m_cast.end();it++) {
-        object.m_People.actors.Add(it->strName.c_str(), it->strRole.c_str());
-    }
+    for(const auto& actor : tag.GetCast())
+      object.m_People.actors.Add(actor.strName.c_str(), actor.strRole.c_str());
 
     for (unsigned int index = 0; index < tag.m_director.size(); index++)
       object.m_People.directors.Add(tag.m_director[index].c_str());
@@ -333,7 +332,7 @@ PopulateObjectFromTag(CVideoInfoTag&         tag,
     if (resource) {
         resource->m_Duration = tag.GetDuration();
         if (tag.HasStreamDetails()) {
-            const CStreamDetails &details = tag.m_streamDetails;
+            const CStreamDetails &details = tag.GetStreamDetails();
             resource->m_Resolution = NPT_String::FromInteger(details.GetVideoWidth()) + "x" + NPT_String::FromInteger(details.GetVideoHeight());
             resource->m_NbAudioChannels = details.GetAudioChannels();
         }
@@ -527,9 +526,8 @@ BuildObject(CFileItem&                    item,
                   for (unsigned int index = 0; index < tag.m_genre.size(); index++)
                     container->m_Affiliation.genres.Add(tag.m_genre.at(index).c_str());
 
-                  for(CVideoInfoTag::iCast it = tag.m_cast.begin();it != tag.m_cast.end();it++) {
-                      container->m_People.actors.Add(it->strName.c_str(), it->strRole.c_str());
-                  }
+                  for (const auto& actor : tag.GetCast())
+                    container->m_People.actors.Add(actor.strName.c_str(), actor.strRole.c_str());
 
                   for (unsigned int index = 0; index < tag.m_director.size(); index++)
                     container->m_People.directors.Add(tag.m_director[index].c_str());
@@ -846,7 +844,7 @@ PopulateTagFromObject(CVideoInfoTag&         tag,
       SActorInfo info;
       info.strName = object.m_People.actors.GetItem(index)->name;
       info.strRole = object.m_People.actors.GetItem(index)->role;
-      tag.m_cast.push_back(info);
+      tag.AddActor(std::move(info));
     }
     tag.m_strTagLine  = object.m_Description.description;
     tag.m_strPlot     = object.m_Description.long_description;
@@ -874,14 +872,14 @@ PopulateTagFromObject(CVideoInfoTag&         tag,
           detail->m_iWidth = width;
           detail->m_iHeight = height;
           detail->m_iDuration = tag.GetDuration();
-          tag.m_streamDetails.AddStream(detail);
+          tag.GetStreamDetails().AddStream(detail);
         }
       }
       if (resource->m_NbAudioChannels > 0)
       {
         CStreamDetailAudio* detail = new CStreamDetailAudio;
         detail->m_iChannels = resource->m_NbAudioChannels;
-        tag.m_streamDetails.AddStream(detail);
+        tag.GetStreamDetails().AddStream(detail);
       }
     }
     return NPT_SUCCESS;

@@ -9,9 +9,11 @@
 #pragma once
 
 #include "XBDateTime.h"
+#include "utils/DefaultedMap.h"
 #include "utils/EmbeddedArt.h"
 #include "utils/Fanart.h"
 #include "utils/ISortable.h"
+#include "utils/LazySerializedProperty.h"
 #include "utils/ScraperUrl.h"
 #include "utils/StreamDetails.h"
 #include "video/Bookmark.h"
@@ -43,6 +45,7 @@ public:
   CRating() = default;
   explicit CRating(float r): rating(r) {}
   CRating(float r, int v): rating(r), votes(v) {}
+
   float rating = 0.0f;
   int votes = 0;
 };
@@ -51,7 +54,7 @@ typedef std::map<std::string, CRating> RatingMap;
 class CVideoInfoTag : public IArchivable, public ISerializable, public ISortable
 {
 public:
-  CVideoInfoTag() { Reset(); };
+  CVideoInfoTag();
   virtual ~CVideoInfoTag() = default;
   void Reset();
   /* \brief Load information to a videoinfotag from an XML element
@@ -74,7 +77,10 @@ public:
   void Archive(CArchive& ar) override;
   void Serialize(CVariant& value) const override;
   void ToSortable(SortItem& sortable, Field field) const override;
+
+  const std::vector<std::string>& GetTags() const;
   const CRating GetRating(std::string type = "") const;
+  const std::map<std::string, CRating>& GetRatings() const;
   const std::string& GetDefaultRating() const;
   const std::string GetUniqueID(std::string type = "") const;
   const std::map<std::string, std::string>& GetUniqueIDs() const;
@@ -85,8 +91,12 @@ public:
   bool HasPremiered() const;
   const CDateTime& GetPremiered() const;
   const CDateTime& GetFirstAired() const;
-  const std::string GetCast(bool bIncludeRole = false) const;
+  const std::vector<SActorInfo>& GetCast() const;
+  const std::string GetCastAsString(bool bIncludeRole = false) const;
   bool HasStreamDetails() const;
+  CStreamDetails& GetStreamDetails();
+  const CStreamDetails& GetStreamDetails() const;
+  void SetStreamDetails(CStreamDetails streamDetails);
   bool IsEmpty() const;
 
   const std::string& GetPath() const
@@ -213,6 +223,10 @@ public:
    */
   virtual bool SetResumePoint(double timeInSeconds, double totalTimeInSeconds, const std::string &playerState);
 
+  void ClearCast();
+  void SetCast(std::vector<SActorInfo> cast);
+  void AddActor(SActorInfo actor);
+
   std::string m_basePath; // the base path of the video, for folder-based lookups
   int m_parentPathID;      // the parent path id where the base path of the video lies
   std::vector<std::string> m_director;
@@ -227,7 +241,7 @@ public:
   std::string m_strTitle;
   std::string m_strSortTitle;
   std::vector<std::string> m_artist;
-  std::vector< SActorInfo > m_cast;
+  CLazySerializedProperty<std::vector<SActorInfo>> m_cast;
   typedef std::vector< SActorInfo >::const_iterator iCast;
   struct SetInfo //!< Struct holding information about a movie set
   {
@@ -236,7 +250,7 @@ public:
     std::string overview; //!< Overview/description of the movie set
   };
   SetInfo m_set; //!< Assigned movie set
-  std::vector<std::string> m_tags;
+  CLazySerializedProperty<std::vector<std::string>> m_tags;
   std::string m_strFile;
   std::string m_strPath;
   std::string m_strMPAARating;
@@ -263,7 +277,7 @@ public:
   int m_iSpecialSortSeason;
   int m_iSpecialSortEpisode;
   int m_iTrack;
-  RatingMap m_ratings;
+  CLazySerializedProperty<CDefaultedMap<std::string, CRating>> m_ratings;
   int m_iIdRating;
   int m_iUserRating;
   CBookmark m_EpBookmark;
@@ -271,7 +285,7 @@ public:
   int m_iIdShow;
   int m_iIdSeason;
   CFanart m_fanart;
-  CStreamDetails m_streamDetails;
+  CLazySerializedProperty<CStreamDetails> m_streamDetails;
   CDateTime m_dateAdded;
   MediaType m_type;
   int m_relevance; // Used for actors' number of appearances
@@ -280,6 +294,8 @@ public:
 
   // TODO: cannot be private, because of 'struct SDbTableOffsets'
   unsigned int m_duration; ///< duration in seconds
+
+  CLazySerializedProperty<CDefaultedMap<std::string, std::string>> m_uniqueIDs;
 
 private:
   /* \brief Parse our native XML format for video info.
@@ -291,9 +307,6 @@ private:
    */
   void ParseNative(const TiXmlElement* element, bool prioritise);
 
-  std::string m_strDefaultRating;
-  std::string m_strDefaultUniqueID;
-  std::map<std::string, std::string> m_uniqueIDs;
   std::string Trim(std::string &&value);
   std::vector<std::string> Trim(std::vector<std::string> &&items);
 

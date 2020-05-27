@@ -286,11 +286,11 @@ bool CVideoGUIInfo::GetLabel(std::string& value, const CFileItem *item, int cont
         break;
       case VIDEOPLAYER_CAST:
       case LISTITEM_CAST:
-        value = tag->GetCast();
+        value = tag->GetCastAsString();
         return true;
       case VIDEOPLAYER_CAST_AND_ROLE:
       case LISTITEM_CAST_AND_ROLE:
-        value = tag->GetCast(true);
+        value = tag->GetCastAsString(true);
         return true;
       case VIDEOPLAYER_ARTIST:
       case LISTITEM_ARTIST:
@@ -373,7 +373,9 @@ bool CVideoGUIInfo::GetLabel(std::string& value, const CFileItem *item, int cont
         value = tag->m_strStatus;
         return true;
       case LISTITEM_TAG:
-        value = StringUtils::Join(tag->m_tags, CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_videoItemSeparator);
+        value = StringUtils::Join(
+            tag->GetTags(),
+            CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_videoItemSeparator);
         return true;
       case LISTITEM_SET:
         value = tag->m_set.title;
@@ -418,20 +420,20 @@ bool CVideoGUIInfo::GetLabel(std::string& value, const CFileItem *item, int cont
         value = StringUtils::Format("%d", GetPercentPlayed(tag));
         return true;
       case LISTITEM_VIDEO_CODEC:
-        value = tag->m_streamDetails.GetVideoCodec();
+        value = tag->GetStreamDetails().GetVideoCodec();
         return true;
       case LISTITEM_VIDEO_RESOLUTION:
-        value = CStreamDetails::VideoDimsToResolutionDescription(tag->m_streamDetails.GetVideoWidth(), tag->m_streamDetails.GetVideoHeight());
+        value = CStreamDetails::VideoDimsToResolutionDescription(tag->GetStreamDetails().GetVideoWidth(), tag->GetStreamDetails().GetVideoHeight());
         return true;
       case LISTITEM_VIDEO_ASPECT:
-        value = CStreamDetails::VideoAspectToAspectDescription(tag->m_streamDetails.GetVideoAspect());
+        value = CStreamDetails::VideoAspectToAspectDescription(tag->GetStreamDetails().GetVideoAspect());
         return true;
       case LISTITEM_AUDIO_CODEC:
-        value = tag->m_streamDetails.GetAudioCodec();
+        value = tag->GetStreamDetails().GetAudioCodec();
         return true;
       case LISTITEM_AUDIO_CHANNELS:
       {
-        int iChannels = tag->m_streamDetails.GetAudioChannels();
+        int iChannels = tag->GetStreamDetails().GetAudioChannels();
         if (iChannels > 0)
         {
           value = StringUtils::Format("%i", iChannels);
@@ -440,10 +442,10 @@ bool CVideoGUIInfo::GetLabel(std::string& value, const CFileItem *item, int cont
         break;
       }
       case LISTITEM_AUDIO_LANGUAGE:
-        value = tag->m_streamDetails.GetAudioLanguage();
+        value = tag->GetStreamDetails().GetAudioLanguage();
         return true;
       case LISTITEM_SUBTITLE_LANGUAGE:
-        value = tag->m_streamDetails.GetSubtitleLanguage();
+        value = tag->GetStreamDetails().GetSubtitleLanguage();
         return true;
       case LISTITEM_FILENAME:
       case LISTITEM_FILE_EXTENSION:
@@ -541,7 +543,7 @@ bool CVideoGUIInfo::GetLabel(std::string& value, const CFileItem *item, int cont
     case LISTITEM_STEREOSCOPIC_MODE:
       value = item->GetProperty("stereomode").asString();
       if (value.empty() && tag)
-        value = CStereoscopicsManager::NormalizeStereoMode(tag->m_streamDetails.GetStereoMode());
+        value = CStereoscopicsManager::NormalizeStereoMode(tag->GetStreamDetails().GetStereoMode());
       return true;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -743,7 +745,7 @@ bool CVideoGUIInfo::GetBool(bool& value, const CGUIListItem *gitem, int contextW
     {
       std::string stereoMode = item->GetProperty("stereomode").asString();
       if (stereoMode.empty() && tag)
-        stereoMode = CStereoscopicsManager::NormalizeStereoMode(tag->m_streamDetails.GetStereoMode());
+        stereoMode = CStereoscopicsManager::NormalizeStereoMode(tag->GetStreamDetails().GetStereoMode());
       if (!stereoMode.empty() && stereoMode != "mono")
         value = true;
       return true;

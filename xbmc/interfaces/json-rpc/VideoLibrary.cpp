@@ -1003,16 +1003,10 @@ int CVideoLibrary::RequiresAdditionalDetails(const MediaType& mediaType, const C
     std::string propertyValue = itr->asString();
     if (propertyValue == "cast")
       details = details | VideoDbDetailsCast;
-    else if (propertyValue == "ratings")
-      details = details | VideoDbDetailsRating;
-    else if (propertyValue == "uniqueid")
-      details = details | VideoDbDetailsUniqueID;
     else if (propertyValue == "showlink")
       details = details | VideoDbDetailsShowLink;
     else if (propertyValue == "streamdetails")
       details = details | VideoDbDetailsStream;
-    else if (propertyValue == "tag")
-      details = details | VideoDbDetailsTag;
   }
   return details;
 }
@@ -1058,7 +1052,7 @@ void CVideoLibrary::UpdateResumePoint(const CVariant &parameterObject, CVideoInf
       CBookmark bookmark;
       double total = (double)parameterObject["resume"]["total"].asDouble();
       if (total <= 0.0 && !videodatabase.GetResumeBookMark(details.m_strFileNameAndPath, bookmark))
-        bookmark.totalTimeInSeconds = details.m_streamDetails.GetVideoDuration();
+        bookmark.totalTimeInSeconds = details.GetStreamDetails().GetVideoDuration();
       else
         bookmark.totalTimeInSeconds = total;
 
@@ -1225,7 +1219,7 @@ void CVideoLibrary::UpdateVideoTag(const CVariant &parameterObject, CVideoInfoTa
   UpdateVideoTagField(parameterObject, "showlink", showLink, updatedDetails);
   details.SetShowLink(showLink);
 
-  std::vector<std::string> tags(details.m_tags);
+  std::vector<std::string> tags(details.GetTags());
   UpdateVideoTagField(parameterObject, "tag", tags, updatedDetails);
   details.SetTags(tags);
 

@@ -92,6 +92,7 @@ set(HEADERS ActorProtocol.h
             Crc32.h
             CryptThreading.h
             DatabaseUtils.h
+            DefaultedMap.h
             Digest.h
             EndianSwap.h
             EventStream.h
@@ -124,6 +125,7 @@ set(HEADERS ActorProtocol.h
             JSONVariantWriter.h
             LabelFormatter.h
             LangCodeExpander.h
+            LazySerializedProperty.h
             LegacyPathTranslation.h
             Locale.h
             log.h
@@ -133,6 +135,7 @@ set(HEADERS ActorProtocol.h
             Mime.h
             Observer.h
             params_check_macros.h
+            PerformanceMeasurement.h
             POUtils.h
             ProgressJob.h
             RecentlyAddedJob.h
@@ -146,6 +149,7 @@ set(HEADERS ActorProtocol.h
             ScraperParser.h
             ScraperUrl.h
             Screenshot.h
+            SerializedProperty.h
             SortUtils.h
             Speed.h
             StaticLoggerBase.h

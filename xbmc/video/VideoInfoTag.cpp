@@ -14,6 +14,8 @@
 #include "settings/AdvancedSettings.h"
 #include "settings/SettingsComponent.h"
 #include "utils/Archive.h"
+#include "utils/JSONVariantParser.h"
+#include "utils/JSONVariantWriter.h"
 #include "utils/StringUtils.h"
 #include "utils/Variant.h"
 #include "utils/XMLUtils.h"
@@ -23,6 +25,461 @@
 #include <sstream>
 #include <string>
 #include <vector>
+
+#include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
+
+static const auto UniqueIDMapJsonSerializer =
+    [](const CDefaultedMap<std::string, std::string>& values) -> std::string {
+  rapidjson::StringBuffer stringBuffer;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(stringBuffer);
+  if (!writer.StartObject())
+    return false;
+
+  const auto defaultValue = values.GetDefault();
+  if (!writer.Key("default") || !writer.String(defaultValue.c_str(), defaultValue.size()))
+    return false;
+
+  if (!writer.Key("uniqueids") || !writer.StartObject())
+    return false;
+  const auto& uniqueIDs = values.Get();
+  for (const auto& value : uniqueIDs)
+  {
+    if (!writer.Key(value.first.c_str()) ||
+        !writer.String(value.second.c_str(), value.second.size()))
+      return false;
+  }
+  writer.EndObject(uniqueIDs.size());
+
+  writer.EndObject(2);
+
+  if (!writer.IsComplete())
+    return false;
+
+  return stringBuffer.GetString();
+};
+
+static const auto UniqueIDMapJsonDeserializer =
+    [](const std::string& data) -> CDefaultedMap<std::string, std::string> {
+  if (data.empty())
+    return {};
+
+  rapidjson::Document doc;
+  doc.Parse<rapidjson::kParseIterativeFlag>(data.c_str(), data.size());
+  if (doc.HasParseError() || !doc.IsObject() || !doc.HasMember("default") ||
+      !doc.HasMember("uniqueids"))
+    return {};
+
+  const auto& defaultValue = doc["default"];
+  if (!defaultValue.IsString())
+    return {};
+
+  const auto& jsonValues = doc["uniqueids"];
+  if (!jsonValues.IsObject())
+    return {};
+
+  std::map<std::string, std::string> uniqueIDs;
+  for (auto value = jsonValues.MemberBegin(); value != jsonValues.MemberEnd(); ++value)
+  {
+    if (!value->value.IsString())
+      continue;
+
+    uniqueIDs.emplace(value->name.GetString(), value->value.GetString());
+  }
+
+  CDefaultedMap<std::string, std::string> values;
+  values.Set(std::move(uniqueIDs), defaultValue.GetString());
+
+  return values;
+};
+
+static const auto RatingMapJsonSerializer =
+    [](const CDefaultedMap<std::string, CRating>& values) -> std::string {
+  rapidjson::StringBuffer stringBuffer;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(stringBuffer);
+  if (!writer.StartObject())
+    return false;
+
+  const auto defaultValue = values.GetDefault();
+  if (!writer.Key("default") || !writer.String(defaultValue.c_str(), defaultValue.size()))
+    return false;
+
+  if (!writer.Key("ratings") || !writer.StartObject())
+    return false;
+  const auto& ratings = values.Get();
+  for (const auto& rating : ratings)
+  {
+    if (!writer.Key(rating.first.c_str()) || !writer.StartObject())
+      return false;
+
+    if (!writer.Key("rating") || !writer.Double(rating.second.rating))
+      return false;
+
+    if (!writer.Key("votes") || !writer.Int(rating.second.votes))
+      return false;
+
+    writer.EndObject(2);
+  }
+  writer.EndObject(ratings.size());
+
+  writer.EndObject(2);
+
+  if (!writer.IsComplete())
+    return false;
+
+  return stringBuffer.GetString();
+};
+
+static const auto RatingMapJsonDeserializer =
+    [](const std::string& data) -> CDefaultedMap<std::string, CRating> {
+  if (data.empty())
+    return {};
+
+  rapidjson::Document doc;
+  doc.Parse<rapidjson::kParseIterativeFlag>(data.c_str(), data.size());
+  if (doc.HasParseError() || !doc.IsObject() || !doc.HasMember("default") ||
+      !doc.HasMember("ratings"))
+    return {};
+
+  const auto& defaultValue = doc["default"];
+  if (!defaultValue.IsString())
+    return {};
+
+  const auto& jsonValues = doc["ratings"];
+  if (!jsonValues.IsObject())
+    return {};
+
+  RatingMap ratings;
+  for (auto value = jsonValues.MemberBegin(); value != jsonValues.MemberEnd(); ++value)
+  {
+    if (!value->value.IsObject() || !value->value.HasMember("rating") ||
+        !value->value.HasMember("votes"))
+      continue;
+
+    const auto& ratingJsonValue = value->value["rating"];
+    if (!ratingJsonValue.IsDouble())
+      continue;
+
+    const auto& votesJsonValue = value->value["votes"];
+    if (!votesJsonValue.IsInt())
+      continue;
+
+    CRating rating;
+    rating.rating = ratingJsonValue.GetDouble();
+    rating.votes = votesJsonValue.GetInt();
+
+    ratings.emplace(value->name.GetString(), rating);
+  }
+
+  CDefaultedMap<std::string, CRating> values;
+  values.Set(std::move(ratings), defaultValue.GetString());
+
+  return values;
+};
+
+static const auto StringVectorJsonSerializer =
+    [](const std::vector<std::string>& values) -> std::string {
+  rapidjson::StringBuffer stringBuffer;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(stringBuffer);
+  if (!writer.StartArray())
+    return false;
+
+  for (const auto& value : values)
+  {
+    if (!writer.String(value.c_str(), value.size()))
+      return false;
+  }
+  writer.EndArray(values.size());
+
+  if (!writer.IsComplete())
+    return false;
+
+  return stringBuffer.GetString();
+};
+
+static const auto StringVectorJsonDeserializer =
+    [](const std::string& data) -> std::vector<std::string> {
+  if (data.empty())
+    return {};
+
+  rapidjson::Document doc;
+  doc.Parse<rapidjson::kParseIterativeFlag>(data.c_str(), data.size());
+  if (doc.HasParseError() || !doc.IsArray())
+    return {};
+
+  std::vector<std::string> values;
+  for (const auto& value : doc.GetArray())
+  {
+    if (!value.IsString())
+      continue;
+
+    values.emplace_back(value.GetString());
+  }
+
+  return values;
+};
+
+static const auto CastJsonSerializer = [](const std::vector<SActorInfo>& values) -> std::string
+{
+  rapidjson::StringBuffer stringBuffer;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(stringBuffer);
+  if (!writer.StartArray())
+    return false;
+
+  for (const auto& actor : values)
+  {
+    if (!writer.StartObject())
+      return false;
+
+    if (!writer.Key("name") || !writer.String(actor.strName.c_str()) ||
+        !writer.Key("role") || !writer.String(actor.strRole.c_str()) ||
+        !writer.Key("order") || !writer.Int(actor.order) ||
+        !writer.Key("thumb") || !writer.String(actor.thumb.c_str()) ||
+        !writer.Key("thumbUrl") || !writer.String(actor.thumbUrl.GetData().c_str()))
+      return false;
+
+    writer.EndObject(5);
+  }
+  writer.EndArray(values.size());
+
+  if (!writer.IsComplete())
+    return false;
+
+  return stringBuffer.GetString();
+
+  return {};
+};
+
+static const auto CastJsonDeserializer = [](const std::string& data) -> std::vector<SActorInfo>
+{
+  if (data.empty())
+    return {};
+
+  rapidjson::Document doc;
+  doc.Parse<rapidjson::kParseIterativeFlag>(data.c_str(), data.size());
+  if (doc.HasParseError() || !doc.IsArray())
+    return {};
+
+  std::vector<SActorInfo> actors;
+  for (const auto& value : doc.GetArray())
+  {
+    if (!value.IsObject() || !value.HasMember("name") || !value.HasMember("role") ||
+        !value.HasMember("order") || !value.HasMember("thumb") || !value.HasMember("thumbUrl"))
+      continue;
+
+    const auto& name = value["name"];
+    if (!name.IsString())
+      continue;
+    const auto& role = value["role"];
+    if (!role.IsString())
+      continue;
+    const auto& order = value["order"];
+    if (!order.IsInt())
+      continue;
+    const auto& thumb = value["thumb"];
+    if (!thumb.IsString())
+      continue;
+    const auto& thumbUrl = value["thumbUrl"];
+    if (!thumbUrl.IsString())
+      continue;
+
+    SActorInfo actor;
+    actor.strName = name.GetString();
+    actor.strRole = role.GetString();
+    actor.order = order.GetInt();
+    actor.thumb = thumb.GetString();
+    actor.thumbUrl.ParseFromData(thumbUrl.GetString());
+    actors.emplace_back(actor);
+  }
+
+  return actors;
+};
+
+static const auto StreamDetailsJsonSerializer = [](const CStreamDetails& values) -> std::string
+{
+  rapidjson::StringBuffer stringBuffer;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(stringBuffer);
+  if (!writer.StartArray())
+    return false;
+
+  size_t streamCount = 0;
+
+  // serialize video streams
+  for (size_t i = 0; i < values.GetVideoStreamCount(); ++i)
+  {
+    if (!writer.StartObject())
+      return false;
+
+    const auto stream = static_cast<const CStreamDetailVideo*>(values.GetNthStream(CStreamDetail::VIDEO, i));
+    if (!writer.Key("type") || !writer.String("video") ||
+        !writer.Key("width") || !writer.Int(stream->m_iWidth) ||
+        !writer.Key("height") || !writer.Int(stream->m_iHeight) ||
+        !writer.Key("aspect") || !writer.Double(stream->m_fAspect) ||
+        !writer.Key("duration") || !writer.Int(stream->m_iDuration) ||
+        !writer.Key("codec") || !writer.String(stream->m_strCodec.c_str()) ||
+        !writer.Key("stereomode") || !writer.String(stream->m_strStereoMode.c_str()) ||
+        !writer.Key("language") || !writer.String(stream->m_strLanguage.c_str()))
+      return false;
+
+    writer.EndObject(8);
+
+    streamCount += 1;
+  }
+
+  // serialize audio streams
+  for (size_t i = 0; i < values.GetAudioStreamCount(); ++i)
+  {
+    if (!writer.StartObject())
+      return false;
+
+    const auto stream = static_cast<const CStreamDetailAudio*>(values.GetNthStream(CStreamDetail::AUDIO, i));
+    if (!writer.Key("type") || !writer.String("audio") ||
+        !writer.Key("channels") || !writer.Int(stream->m_iChannels) ||
+        !writer.Key("codec") || !writer.String(stream->m_strCodec.c_str()) ||
+        !writer.Key("language") || !writer.String(stream->m_strLanguage.c_str()))
+      return false;
+
+    writer.EndObject(4);
+
+    streamCount += 1;
+  }
+
+  // serialize subtitle streams
+  for (size_t i = 0; i < values.GetSubtitleStreamCount(); ++i)
+  {
+    if (!writer.StartObject())
+      return false;
+
+    const auto stream = static_cast<const CStreamDetailSubtitle*>(values.GetNthStream(CStreamDetail::SUBTITLE, i));
+    if (!writer.Key("type") || !writer.String("subtitle") ||
+        !writer.Key("language") || !writer.String(stream->m_strLanguage.c_str()))
+      return false;
+
+    writer.EndObject(2);
+
+    streamCount += 1;
+  }
+
+  writer.EndArray(streamCount);
+
+  if (!writer.IsComplete())
+    return false;
+
+  return stringBuffer.GetString();
+};
+
+static const auto StreamDetailsJsonDeserializer = [](const std::string& data) -> CStreamDetails
+{
+  if (data.empty())
+    return {};
+
+  rapidjson::Document doc;
+  doc.Parse<rapidjson::kParseIterativeFlag>(data.c_str(), data.size());
+  if (doc.HasParseError() || !doc.IsArray())
+    return {};
+
+  CStreamDetails streamDetails;
+  for (const auto& value : doc.GetArray())
+  {
+    if (!value.IsObject() || !value.HasMember("type"))
+      continue;
+
+    const auto& typeJson = value["type"];
+    if (!typeJson.IsString())
+      continue;
+
+    const std::string type = typeJson.GetString();
+    if (type == "video")
+    {
+      if (!value.HasMember("width") || !value.HasMember("height") || !value.HasMember("aspect") ||
+          !value.HasMember("duration") || !value.HasMember("codec") ||
+          !value.HasMember("stereomode") || !value.HasMember("language"))
+        continue;
+
+      const auto& width = value["width"];
+      if (!width.IsInt())
+        continue;
+      const auto& height = value["height"];
+      if (!height.IsInt())
+        continue;
+      const auto& aspect = value["aspect"];
+      if (!aspect.IsDouble())
+        continue;
+      const auto& duration = value["duration"];
+      if (!duration.IsInt())
+        continue;
+      const auto& codec = value["codec"];
+      if (!codec.IsString())
+        continue;
+      const auto& stereomode = value["stereomode"];
+      if (!stereomode.IsString())
+        continue;
+      const auto& language = value["language"];
+      if (!language.IsString())
+        continue;
+
+      auto stream = new CStreamDetailVideo();
+      stream->m_iWidth = width.GetInt();
+      stream->m_iHeight = height.GetInt();
+      stream->m_fAspect = static_cast<float>(aspect.GetDouble());
+      stream->m_iDuration = duration.GetInt();
+      stream->m_strCodec = codec.GetString();
+      stream->m_strStereoMode = stereomode.GetString();
+      stream->m_strLanguage = language.GetString();
+      streamDetails.AddStream(stream);
+    }
+    else if (type == "audio")
+    {
+      if (!value.HasMember("channels") || !value.HasMember("codec") ||
+          !value.HasMember("language"))
+        continue;
+
+      const auto& channels = value["channels"];
+      if (!channels.IsInt())
+        continue;
+      const auto& codec = value["codec"];
+      if (!codec.IsString())
+        continue;
+      const auto& language = value["language"];
+      if (!language.IsString())
+        continue;
+
+      auto stream = new CStreamDetailAudio();
+      stream->m_iChannels = channels.GetInt();
+      stream->m_strCodec = codec.GetString();
+      stream->m_strLanguage = language.GetString();
+      streamDetails.AddStream(stream);
+    }
+    else if (type == "subtitle")
+    {
+      if (!value.HasMember("language"))
+        continue;
+
+      const auto& language = value["language"];
+      if (!language.IsString())
+        continue;
+
+      auto stream = new CStreamDetailSubtitle();
+      stream->m_strLanguage = language.GetString();
+      streamDetails.AddStream(stream);
+    }
+    else
+      continue;
+  }
+
+  return streamDetails;
+};
+
+CVideoInfoTag::CVideoInfoTag()
+  : m_cast(CastJsonSerializer, CastJsonDeserializer),
+    m_tags(StringVectorJsonSerializer, StringVectorJsonDeserializer),
+    m_ratings(RatingMapJsonSerializer, RatingMapJsonDeserializer, "default"),
+    m_streamDetails(StreamDetailsJsonSerializer, StreamDetailsJsonDeserializer),
+    m_uniqueIDs(UniqueIDMapJsonSerializer, UniqueIDMapJsonDeserializer, "unknown")
+{
+  Reset();
+};
 
 void CVideoInfoTag::Reset()
 {
@@ -38,11 +495,11 @@ void CVideoInfoTag::Reset()
   m_strShowTitle.clear();
   m_strOriginalTitle.clear();
   m_strSortTitle.clear();
-  m_cast.clear();
+  m_cast->clear();
   m_set.title.clear();
   m_set.id = -1;
   m_set.overview.clear();
-  m_tags.clear();
+  m_tags->clear();
   m_strFile.clear();
   m_strPath.clear();
   m_strMPAARating.clear();
@@ -60,13 +517,11 @@ void CVideoInfoTag::Reset()
   m_iSeason = -1;
   m_iEpisode = -1;
   m_iIdUniqueID = -1;
-  m_uniqueIDs.clear();
-  m_strDefaultUniqueID = "unknown";
+  m_uniqueIDs->Clear();
   m_iSpecialSortSeason = -1;
   m_iSpecialSortEpisode = -1;
-  m_strDefaultRating = "default";
   m_iIdRating = -1;
-  m_ratings.clear();
+  m_ratings->Clear();
   m_iUserRating = 0;
   m_iDbId = -1;
   m_iFileId = -1;
@@ -77,7 +532,7 @@ void CVideoInfoTag::Reset()
   m_lastPlayed.Reset();
   m_showLink.clear();
   m_namedSeasons.clear();
-  m_streamDetails.Reset();
+  m_streamDetails->Reset();
   m_playCount = PLAYCOUNT_NOT_SET;
   m_EpBookmark.Reset();
   m_EpBookmark.type = CBookmark::EPISODE;
@@ -111,17 +566,18 @@ bool CVideoInfoTag::Save(TiXmlNode *node, const std::string &tag, bool savePathI
     XMLUtils::SetString(movie, "showtitle", m_strShowTitle);
   if (!m_strSortTitle.empty())
     XMLUtils::SetString(movie, "sorttitle", m_strSortTitle);
-  if (!m_ratings.empty())
+  if (!m_ratings->Empty())
   {
     TiXmlElement ratings("ratings");
-    for (const auto& it : m_ratings)
+    const auto& defaultRating = m_ratings->GetDefault();
+    for (const auto& it : m_ratings->Get())
     {
       TiXmlElement rating("rating");
       rating.SetAttribute("name", it.first.c_str());
       XMLUtils::SetFloat(&rating, "value", it.second.rating);
       XMLUtils::SetInt(&rating, "votes", it.second.votes);
       rating.SetAttribute("max", 10);
-      if (it.first == m_strDefaultRating)
+      if (it.first == defaultRating)
         rating.SetAttribute("default", "true");
       ratings.InsertEndChild(rating);
     }
@@ -199,11 +655,12 @@ bool CVideoInfoTag::Save(TiXmlNode *node, const std::string &tag, bool savePathI
   }
 
   XMLUtils::SetString(movie, "id", GetUniqueID());
-  for (const auto& uniqueid : m_uniqueIDs)
+  const auto& defaultUniqueID = m_uniqueIDs->GetDefault();
+  for (const auto& uniqueid : m_uniqueIDs->Get())
   {
     TiXmlElement uniqueID("uniqueid");
     uniqueID.SetAttribute("type", uniqueid.first);
-    if (uniqueid.first == m_strDefaultUniqueID)
+    if (uniqueid.first == defaultUniqueID)
       uniqueID.SetAttribute("default", "true");
     TiXmlText value(uniqueid.second);
     uniqueID.InsertEndChild(value);
@@ -233,34 +690,34 @@ bool CVideoInfoTag::Save(TiXmlNode *node, const std::string &tag, bool savePathI
   XMLUtils::SetStringArray(movie, "studio", m_studio);
   XMLUtils::SetString(movie, "trailer", m_strTrailer);
 
-  if (m_streamDetails.HasItems())
+  if (m_streamDetails->HasItems())
   {
     // it goes fileinfo/streamdetails/[video|audio|subtitle]
     TiXmlElement fileinfo("fileinfo");
     TiXmlElement streamdetails("streamdetails");
-    for (int iStream=1; iStream<=m_streamDetails.GetVideoStreamCount(); iStream++)
+    for (int iStream=1; iStream<=m_streamDetails->GetVideoStreamCount(); iStream++)
     {
       TiXmlElement stream("video");
-      XMLUtils::SetString(&stream, "codec", m_streamDetails.GetVideoCodec(iStream));
-      XMLUtils::SetFloat(&stream, "aspect", m_streamDetails.GetVideoAspect(iStream));
-      XMLUtils::SetInt(&stream, "width", m_streamDetails.GetVideoWidth(iStream));
-      XMLUtils::SetInt(&stream, "height", m_streamDetails.GetVideoHeight(iStream));
-      XMLUtils::SetInt(&stream, "durationinseconds", m_streamDetails.GetVideoDuration(iStream));
-      XMLUtils::SetString(&stream, "stereomode", m_streamDetails.GetStereoMode(iStream));
+      XMLUtils::SetString(&stream, "codec", m_streamDetails->GetVideoCodec(iStream));
+      XMLUtils::SetFloat(&stream, "aspect", m_streamDetails->GetVideoAspect(iStream));
+      XMLUtils::SetInt(&stream, "width", m_streamDetails->GetVideoWidth(iStream));
+      XMLUtils::SetInt(&stream, "height", m_streamDetails->GetVideoHeight(iStream));
+      XMLUtils::SetInt(&stream, "durationinseconds", m_streamDetails->GetVideoDuration(iStream));
+      XMLUtils::SetString(&stream, "stereomode", m_streamDetails->GetStereoMode(iStream));
       streamdetails.InsertEndChild(stream);
     }
-    for (int iStream=1; iStream<=m_streamDetails.GetAudioStreamCount(); iStream++)
+    for (int iStream=1; iStream<=m_streamDetails->GetAudioStreamCount(); iStream++)
     {
       TiXmlElement stream("audio");
-      XMLUtils::SetString(&stream, "codec", m_streamDetails.GetAudioCodec(iStream));
-      XMLUtils::SetString(&stream, "language", m_streamDetails.GetAudioLanguage(iStream));
-      XMLUtils::SetInt(&stream, "channels", m_streamDetails.GetAudioChannels(iStream));
+      XMLUtils::SetString(&stream, "codec", m_streamDetails->GetAudioCodec(iStream));
+      XMLUtils::SetString(&stream, "language", m_streamDetails->GetAudioLanguage(iStream));
+      XMLUtils::SetInt(&stream, "channels", m_streamDetails->GetAudioChannels(iStream));
       streamdetails.InsertEndChild(stream);
     }
-    for (int iStream=1; iStream<=m_streamDetails.GetSubtitleStreamCount(); iStream++)
+    for (int iStream=1; iStream<=m_streamDetails->GetSubtitleStreamCount(); iStream++)
     {
       TiXmlElement stream("subtitle");
-      XMLUtils::SetString(&stream, "language", m_streamDetails.GetSubtitleLanguage(iStream));
+      XMLUtils::SetString(&stream, "language", m_streamDetails->GetSubtitleLanguage(iStream));
       streamdetails.InsertEndChild(stream);
     }
     fileinfo.InsertEndChild(streamdetails);
@@ -268,7 +725,7 @@ bool CVideoInfoTag::Save(TiXmlNode *node, const std::string &tag, bool savePathI
   }  /* if has stream details */
 
   // cast
-  for (iCast it = m_cast.begin(); it != m_cast.end(); ++it)
+  for (iCast it = m_cast->begin(); it != m_cast->end(); ++it)
   {
     // add a <actor> tag
     TiXmlElement cast("actor");
@@ -338,14 +795,14 @@ void CVideoInfoTag::Archive(CArchive& ar)
     ar << m_strSortTitle;
     ar << m_studio;
     ar << m_strTrailer;
-    ar << (int)m_cast.size();
-    for (unsigned int i=0;i<m_cast.size();++i)
+    ar << (int)m_cast->size();
+    for (const auto& actor : m_cast.value())
     {
-      ar << m_cast[i].strName;
-      ar << m_cast[i].strRole;
-      ar << m_cast[i].order;
-      ar << m_cast[i].thumb;
-      ar << m_cast[i].thumbUrl.GetData();
+      ar << actor.strName;
+      ar << actor.strRole;
+      ar << actor.order;
+      ar << actor.thumb;
+      ar << actor.thumbUrl.GetData();
     }
 
     ar << m_set.title;
@@ -372,18 +829,20 @@ void CVideoInfoTag::Archive(CArchive& ar)
     ar << m_iTop250;
     ar << m_iSeason;
     ar << m_iEpisode;
-    ar << (int)m_uniqueIDs.size();
-    for (const auto& i : m_uniqueIDs)
+    ar << (int)m_uniqueIDs->Size();
+    const auto& defaultUniqueID = m_uniqueIDs->GetDefault();
+    for (const auto& i : m_uniqueIDs->Get())
     {
       ar << i.first;
-      ar << (i.first == m_strDefaultUniqueID);
+      ar << (i.first == defaultUniqueID);
       ar << i.second;
     }
-    ar << (int)m_ratings.size();
-    for (const auto& i : m_ratings)
+    ar << (int)m_ratings->Size();
+    const auto& defaultRating = m_ratings->GetDefault();
+    for (const auto& i : m_ratings->Get())
     {
       ar << i.first;
-      ar << (i.first == m_strDefaultRating);
+      ar << (i.first == defaultRating);
       ar << i.second.rating;
       ar << i.second.votes;
     }
@@ -394,7 +853,7 @@ void CVideoInfoTag::Archive(CArchive& ar)
     ar << m_iSpecialSortEpisode;
     ar << m_iBookmarkId;
     ar << m_iTrack;
-    ar << dynamic_cast<IArchivable&>(m_streamDetails);
+    ar << dynamic_cast<IArchivable&>(GetStreamDetails());
     ar << m_showLink;
     ar << static_cast<int>(m_namedSeasons.size());
     for (const auto& namedSeason : m_namedSeasons)
@@ -436,7 +895,7 @@ void CVideoInfoTag::Archive(CArchive& ar)
     ar >> m_strTrailer;
     int iCastSize;
     ar >> iCastSize;
-    m_cast.reserve(iCastSize);
+    m_cast->reserve(iCastSize);
     for (int i=0;i<iCastSize;++i)
     {
       SActorInfo info;
@@ -447,7 +906,7 @@ void CVideoInfoTag::Archive(CArchive& ar)
       std::string strXml;
       ar >> strXml;
       info.thumbUrl.ParseFromData(strXml);
-      m_cast.push_back(info);
+      m_cast->push_back(info);
     }
 
     ar >> m_set.title;
@@ -484,9 +943,7 @@ void CVideoInfoTag::Archive(CArchive& ar)
       ar >> name;
       ar >> defaultUniqueID;
       ar >> value;
-      SetUniqueID(value, name);
-      if (defaultUniqueID)
-        m_strDefaultUniqueID = name;
+      SetUniqueID(value, name, defaultUniqueID);
     }
     int iRatingSize;
     ar >> iRatingSize;
@@ -499,9 +956,7 @@ void CVideoInfoTag::Archive(CArchive& ar)
       ar >> defaultRating;
       ar >> rating.rating;
       ar >> rating.votes;
-      SetRating(rating, name);
-      if (defaultRating)
-        m_strDefaultRating = name;
+      SetRating(rating, name, defaultRating);
     }
     ar >> m_iUserRating;
     ar >> m_iDbId;
@@ -510,7 +965,7 @@ void CVideoInfoTag::Archive(CArchive& ar)
     ar >> m_iSpecialSortEpisode;
     ar >> m_iBookmarkId;
     ar >> m_iTrack;
-    ar >> dynamic_cast<IArchivable&>(m_streamDetails);
+    ar >> dynamic_cast<IArchivable&>(GetStreamDetails());
     ar >> m_showLink;
 
     int namedSeasonSize;
@@ -559,20 +1014,20 @@ void CVideoInfoTag::Serialize(CVariant& value) const
   value["studio"] = m_studio;
   value["trailer"] = m_strTrailer;
   value["cast"] = CVariant(CVariant::VariantTypeArray);
-  for (unsigned int i = 0; i < m_cast.size(); ++i)
+  for (const auto& actor : m_cast.value())
   {
-    CVariant actor;
-    actor["name"] = m_cast[i].strName;
-    actor["role"] = m_cast[i].strRole;
-    actor["order"] = m_cast[i].order;
-    if (!m_cast[i].thumb.empty())
-      actor["thumbnail"] = CTextureUtils::GetWrappedImageURL(m_cast[i].thumb);
-    value["cast"].push_back(actor);
+    CVariant actorVariant;
+    actorVariant["name"] = actor.strName;
+    actorVariant["role"] = actor.strRole;
+    actorVariant["order"] = actor.order;
+    if (!actor.thumb.empty())
+      actorVariant["thumbnail"] = CTextureUtils::GetWrappedImageURL(actor.thumb);
+    value["cast"].push_back(actorVariant);
   }
   value["set"] = m_set.title;
   value["setid"] = m_set.id;
   value["setoverview"] = m_set.overview;
-  value["tag"] = m_tags;
+  value["tag"] = *m_tags;
   value["runtime"] = GetDuration();
   value["file"] = m_strFile;
   value["path"] = m_strPath;
@@ -595,17 +1050,18 @@ void CVideoInfoTag::Serialize(CVariant& value) const
   value["year"] = m_premiered.GetYear();
   value["season"] = m_iSeason;
   value["episode"] = m_iEpisode;
-  for (const auto& i : m_uniqueIDs)
+  for (const auto& i : m_uniqueIDs->Get())
     value["uniqueid"][i.first] = i.second;
 
   value["rating"] = GetRating().rating;
   CVariant ratings = CVariant(CVariant::VariantTypeObject);
-  for (const auto& i : m_ratings)
+  const auto& defaultRating = m_ratings->GetDefault();
+  for (const auto& i : m_ratings->Get())
   {
     CVariant rating;
     rating["rating"] = i.second.rating;
     rating["votes"] = i.second.votes;
-    rating["default"] = i.first == m_strDefaultRating;
+    rating["default"] = i.first == defaultRating;
 
     ratings[i.first] = rating;
   }
@@ -615,7 +1071,7 @@ void CVideoInfoTag::Serialize(CVariant& value) const
   value["fileid"] = m_iFileId;
   value["track"] = m_iTrack;
   value["showlink"] = m_showLink;
-  m_streamDetails.Serialize(value["streamdetails"]);
+  m_streamDetails->Serialize(value["streamdetails"]);
   CVariant resume = CVariant(CVariant::VariantTypeObject);
   resume["position"] = m_resumePoint.timeInSeconds;
   resume["total"] = m_resumePoint.totalTimeInSeconds;
@@ -691,18 +1147,18 @@ void CVideoInfoTag::ToSortable(SortItem& sortable, Field field) const
   case FieldUserRating:               sortable[FieldUserRating] = m_iUserRating; break;
   case FieldId:                       sortable[FieldId] = m_iDbId; break;
   case FieldTrackNumber:              sortable[FieldTrackNumber] = m_iTrack; break;
-  case FieldTag:                      sortable[FieldTag] = m_tags; break;
+  case FieldTag:                      sortable[FieldTag] = *m_tags; break;
 
-  case FieldVideoResolution:          sortable[FieldVideoResolution] = m_streamDetails.GetVideoHeight(); break;
-  case FieldVideoAspectRatio:         sortable[FieldVideoAspectRatio] = m_streamDetails.GetVideoAspect(); break;
-  case FieldVideoCodec:               sortable[FieldVideoCodec] = m_streamDetails.GetVideoCodec(); break;
-  case FieldStereoMode:               sortable[FieldStereoMode] = m_streamDetails.GetStereoMode(); break;
+  case FieldVideoResolution:          sortable[FieldVideoResolution] = m_streamDetails->GetVideoHeight(); break;
+  case FieldVideoAspectRatio:         sortable[FieldVideoAspectRatio] = m_streamDetails->GetVideoAspect(); break;
+  case FieldVideoCodec:               sortable[FieldVideoCodec] = m_streamDetails->GetVideoCodec(); break;
+  case FieldStereoMode:               sortable[FieldStereoMode] = m_streamDetails->GetStereoMode(); break;
 
-  case FieldAudioChannels:            sortable[FieldAudioChannels] = m_streamDetails.GetAudioChannels(); break;
-  case FieldAudioCodec:               sortable[FieldAudioCodec] = m_streamDetails.GetAudioCodec(); break;
-  case FieldAudioLanguage:            sortable[FieldAudioLanguage] = m_streamDetails.GetAudioLanguage(); break;
+  case FieldAudioChannels:            sortable[FieldAudioChannels] = m_streamDetails->GetAudioChannels(); break;
+  case FieldAudioCodec:               sortable[FieldAudioCodec] = m_streamDetails->GetAudioCodec(); break;
+  case FieldAudioLanguage:            sortable[FieldAudioLanguage] = m_streamDetails->GetAudioLanguage(); break;
 
-  case FieldSubtitleLanguage:         sortable[FieldSubtitleLanguage] = m_streamDetails.GetSubtitleLanguage(); break;
+  case FieldSubtitleLanguage:         sortable[FieldSubtitleLanguage] = m_streamDetails->GetSubtitleLanguage(); break;
 
   case FieldInProgress:               sortable[FieldInProgress] = m_resumePoint.IsPartWay(); break;
   case FieldDateAdded:                sortable[FieldDateAdded] = m_dateAdded.IsValid() ? m_dateAdded.GetAsDBDateTime() : StringUtils::Empty; break;
@@ -712,21 +1168,24 @@ void CVideoInfoTag::ToSortable(SortItem& sortable, Field field) const
   }
 }
 
+const std::vector<std::string>& CVideoInfoTag::GetTags() const
+{
+  return m_tags.value();
+}
+
 const CRating CVideoInfoTag::GetRating(std::string type) const
 {
-  if (type.empty())
-    type = m_strDefaultRating;
+  return m_ratings->GetValue(type);
+}
 
-  const auto& rating = m_ratings.find(type);
-  if (rating == m_ratings.end())
-    return CRating();
-
-  return rating->second;
+const std::map<std::string, CRating>& CVideoInfoTag::GetRatings() const
+{
+  return m_ratings->Get();
 }
 
 const std::string& CVideoInfoTag::GetDefaultRating() const
 {
-  return m_strDefaultRating;
+  return m_ratings->GetDefault();
 }
 
 bool CVideoInfoTag::HasYear() const
@@ -760,35 +1219,33 @@ const CDateTime& CVideoInfoTag::GetFirstAired() const
 
 const std::string CVideoInfoTag::GetUniqueID(std::string type) const
 {
-  if (type.empty())
-    type = m_strDefaultUniqueID;
-
-  const auto& uniqueid = m_uniqueIDs.find(type);
-  if (uniqueid == m_uniqueIDs.end())
-    return "";
-
-  return uniqueid->second;
+  return m_uniqueIDs->GetValue(type);
 }
 
 const std::map<std::string, std::string>& CVideoInfoTag::GetUniqueIDs() const
 {
-  return m_uniqueIDs;
+  return m_uniqueIDs->Get();
 }
 
 const std::string& CVideoInfoTag::GetDefaultUniqueID() const
 {
-  return m_strDefaultUniqueID;
+  return m_uniqueIDs->GetDefault();
 }
 
 bool CVideoInfoTag::HasUniqueID() const
 {
-  return !m_uniqueIDs.empty();
+  return !m_uniqueIDs->Empty();
 }
 
-const std::string CVideoInfoTag::GetCast(bool bIncludeRole /*= false*/) const
+const std::vector<SActorInfo>& CVideoInfoTag::GetCast() const
+{
+  return m_cast.value();
+}
+
+const std::string CVideoInfoTag::GetCastAsString(bool bIncludeRole /*= false*/) const
 {
   std::string strLabel;
-  for (iCast it = m_cast.begin(); it != m_cast.end(); ++it)
+  for (iCast it = m_cast->begin(); it != m_cast->end(); ++it)
   {
     std::string character;
     if (it->strRole.empty() || !bIncludeRole)
@@ -832,13 +1289,14 @@ void CVideoInfoTag::ParseNative(const TiXmlElement* movie, bool prioritise)
       int max_value = 10;
       if ((child->QueryIntAttribute("max", &max_value) == TIXML_SUCCESS) && max_value >= 1)
         r.rating = r.rating / max_value * 10; // Normalise the Movie Rating to between 1 and 10
-      SetRating(r, name);
       bool isDefault = false;
+      bool isDefaultRating = false;
       // guard against assert in tinyxml
       const char* rAtt = child->Attribute("default", static_cast<int*>(nullptr));
       if (rAtt && strlen(rAtt) != 0 &&
           (child->QueryBoolAttribute("default", &isDefault) == TIXML_SUCCESS) && isDefault)
-        m_strDefaultRating = name;
+        isDefaultRating = isDefault;
+      SetRating(r, name, isDefaultRating);
     }
   }
   else if (XMLUtils::GetFloat(movie, "rating", fValue))
@@ -850,8 +1308,7 @@ void CVideoInfoTag::ParseNative(const TiXmlElement* movie, bool prioritise)
     const TiXmlElement* rElement = movie->FirstChildElement("rating");
     if (rElement && (rElement->QueryIntAttribute("max", &max_value) == TIXML_SUCCESS) && max_value >= 1)
       r.rating = r.rating / max_value * 10; // Normalise the Movie Rating to between 1 and 10
-    SetRating(r, "default");
-    m_strDefaultRating = "default";
+    SetRating(r, "default", true);
   }
   XMLUtils::GetInt(movie, "userrating", m_iUserRating);
 
@@ -926,13 +1383,14 @@ void CVideoInfoTag::ParseNative(const TiXmlElement* movie, bool prioritise)
     {
       if (uniqueid->FirstChild())
       {
-      if (uniqueid->QueryStringAttribute("type", &value) == TIXML_SUCCESS)
-        SetUniqueID(uniqueid->FirstChild()->ValueStr(), value);
-      else
-        SetUniqueID(uniqueid->FirstChild()->ValueStr());
-      bool isDefault;
-      if ((uniqueid->QueryBoolAttribute("default", &isDefault) == TIXML_SUCCESS) && isDefault)
-        m_strDefaultUniqueID = value;
+        std::string type;
+        if (uniqueid->QueryStringAttribute("type", &value) == TIXML_SUCCESS)
+          type = value;
+        bool isDefault;
+        bool isDefaultUniqueId = false;
+        if ((uniqueid->QueryBoolAttribute("default", &isDefault) == TIXML_SUCCESS) && isDefault)
+          isDefaultUniqueId = isDefault;
+        SetUniqueID(uniqueid->FirstChild()->ValueStr(), type, isDefaultUniqueId);
       }
     }
   }
@@ -1035,7 +1493,7 @@ void CVideoInfoTag::ParseNative(const TiXmlElement* movie, bool prioritise)
   // cast
   node = movie->FirstChildElement("actor");
   if (node && node->FirstChild() && prioritise)
-    m_cast.clear();
+    m_cast->clear();
   while (node)
   {
     const TiXmlNode *actor = node->FirstChild("name");
@@ -1056,8 +1514,8 @@ void CVideoInfoTag::ParseNative(const TiXmlElement* movie, bool prioritise)
       }
       const char* clear=node->Attribute("clear");
       if (clear && StringUtils::CompareNoCase(clear, "true"))
-        m_cast.clear();
-      m_cast.push_back(info);
+        m_cast->clear();
+      m_cast->push_back(info);
     }
     node = node->NextSiblingElement("actor");
   }
@@ -1133,7 +1591,7 @@ void CVideoInfoTag::ParseNative(const TiXmlElement* movie, bool prioritise)
         XMLUtils::GetInt(nodeDetail, "channels", p->m_iChannels);
         StringUtils::ToLower(p->m_strCodec);
         StringUtils::ToLower(p->m_strLanguage);
-        m_streamDetails.AddStream(p);
+        m_streamDetails->AddStream(p);
       }
       nodeDetail = NULL;
       while ((nodeDetail = nodeStreamDetails->IterateChildren("video", nodeDetail)))
@@ -1154,7 +1612,7 @@ void CVideoInfoTag::ParseNative(const TiXmlElement* movie, bool prioritise)
         StringUtils::ToLower(p->m_strCodec);
         StringUtils::ToLower(p->m_strStereoMode);
         StringUtils::ToLower(p->m_strLanguage);
-        m_streamDetails.AddStream(p);
+        m_streamDetails->AddStream(p);
       }
       nodeDetail = NULL;
       while ((nodeDetail = nodeStreamDetails->IterateChildren("subtitle", nodeDetail)))
@@ -1163,10 +1621,10 @@ void CVideoInfoTag::ParseNative(const TiXmlElement* movie, bool prioritise)
         if (XMLUtils::GetString(nodeDetail, "language", value))
           p->m_strLanguage = StringUtils::Trim(value);
         StringUtils::ToLower(p->m_strLanguage);
-        m_streamDetails.AddStream(p);
+        m_streamDetails->AddStream(p);
       }
     }
-    m_streamDetails.DetermineBestStreams();
+    m_streamDetails->DetermineBestStreams();
   }  /* if fileinfo */
 
   const TiXmlElement *epguide = movie->FirstChildElement("episodeguide");
@@ -1220,7 +1678,22 @@ void CVideoInfoTag::ParseNative(const TiXmlElement* movie, bool prioritise)
 
 bool CVideoInfoTag::HasStreamDetails() const
 {
-  return m_streamDetails.HasItems();
+  return m_streamDetails->HasItems();
+}
+
+CStreamDetails& CVideoInfoTag::GetStreamDetails()
+{
+  return m_streamDetails.value();
+}
+
+const CStreamDetails& CVideoInfoTag::GetStreamDetails() const
+{
+  return m_streamDetails.value();
+}
+
+void CVideoInfoTag::SetStreamDetails(CStreamDetails streamDetails)
+{
+  m_streamDetails = std::move(streamDetails);
 }
 
 bool CVideoInfoTag::IsEmpty() const
@@ -1241,7 +1714,7 @@ unsigned int CVideoInfoTag::GetDuration() const
    Prefer the duration from the stream if it isn't too
    small (60%) compared to the duration from the tag.
    */
-  unsigned int duration = m_streamDetails.GetVideoDuration();
+  unsigned int duration = m_streamDetails->GetVideoDuration();
   if (duration > m_duration * 0.6)
     return duration;
 
@@ -1339,14 +1812,7 @@ void CVideoInfoTag::SetRating(CRating rating, const std::string& type /* = "" */
   if (rating.rating <= 0 || rating.rating > 10)
     return;
 
-  if (type.empty())
-    m_ratings[m_strDefaultRating] = rating;
-  else
-  {
-    if (def || m_ratings.empty())
-      m_strDefaultRating = type;
-    m_ratings[type] = rating;
-  }
+  m_ratings->SetValue(rating, type, def);
 }
 
 void CVideoInfoTag::SetRating(float rating, const std::string& type /* = "" */, bool def /* = false */)
@@ -1354,37 +1820,32 @@ void CVideoInfoTag::SetRating(float rating, const std::string& type /* = "" */, 
   if (rating <= 0 || rating > 10)
     return;
 
-  if (type.empty())
-    m_ratings[m_strDefaultRating].rating = rating;
-  else
-  {
-    if (def || m_ratings.empty())
-      m_strDefaultRating = type;
-    m_ratings[type].rating = rating;
-  }
+  CRating rat;
+  if (!m_ratings->TryGetValue(rat, type))
+    return;
+
+  rat.rating = rating;
+  m_ratings->SetValue(rat, type, def);
 }
 
 void CVideoInfoTag::RemoveRating(const std::string& type)
 {
-  if (m_ratings.find(type) != m_ratings.end())
-  {
-    m_ratings.erase(type);
-    if (m_strDefaultRating == type && !m_ratings.empty())
-      m_strDefaultRating = m_ratings.begin()->first;
-  }
+  m_ratings->RemoveValue(type);
 }
 
 void CVideoInfoTag::SetRatings(RatingMap ratings)
 {
-  m_ratings = std::move(ratings);
+  m_ratings->Set(std::move(ratings));
 }
 
 void CVideoInfoTag::SetVotes(int votes, const std::string& type /* = "" */)
 {
-  if (type.empty())
-    m_ratings[m_strDefaultRating].votes = votes;
-  else
-    m_ratings[type].votes = votes;
+  CRating rat;
+  if (!m_ratings->TryGetValue(rat, type))
+    return;
+
+  rat.votes = votes;
+  m_ratings->SetValue(rat, type);
 }
 
 void CVideoInfoTag::SetPremiered(CDateTime premiered)
@@ -1418,18 +1879,11 @@ void CVideoInfoTag::SetArtist(std::vector<std::string> artist)
 
 void CVideoInfoTag::SetUniqueIDs(std::map<std::string, std::string> uniqueIDs)
 {
-  for (const auto& uniqueid : uniqueIDs)
-  {
-    if (uniqueid.first.empty())
-      uniqueIDs.erase(uniqueid.first);
-  }
-  if (uniqueIDs.find(m_strDefaultUniqueID) == uniqueIDs.end())
-  {
-    const auto defaultUniqueId = GetUniqueID();
-    if (!defaultUniqueId.empty())
-      uniqueIDs[m_strDefaultUniqueID] = defaultUniqueId;
-  }
-  m_uniqueIDs = std::move(uniqueIDs);
+  const auto emptyUniqueID = uniqueIDs.find("");
+  if (emptyUniqueID != uniqueIDs.end())
+    uniqueIDs.erase(emptyUniqueID);
+
+  m_uniqueIDs->Set(std::move(uniqueIDs));
 }
 
 void CVideoInfoTag::SetSet(std::string set)
@@ -1515,20 +1969,12 @@ void CVideoInfoTag::SetUniqueID(const std::string& uniqueid, const std::string& 
   if (uniqueid.empty())
     return;
 
-  if (type.empty())
-    m_uniqueIDs[m_strDefaultUniqueID] = uniqueid;
-  else
-  {
-    m_uniqueIDs[type] = uniqueid;
-    if (isDefaultID)
-      m_strDefaultUniqueID = type;
-  }
+  m_uniqueIDs->SetValue(uniqueid, type, isDefaultID);
 }
 
 void CVideoInfoTag::RemoveUniqueID(const std::string& type)
 {
-  if (m_uniqueIDs.find(type) != m_uniqueIDs.end())
-    m_uniqueIDs.erase(type);
+  m_uniqueIDs->RemoveValue(type);
 }
 
 void CVideoInfoTag::SetNamedSeasons(std::map<int, std::string> namedSeasons)
@@ -1609,4 +2055,19 @@ bool CVideoInfoTag::SetResumePoint(double timeInSeconds, double totalTimeInSecon
 
   m_resumePoint = resumePoint;
   return true;
+}
+
+void CVideoInfoTag::ClearCast()
+{
+  m_cast->clear();
+}
+
+void CVideoInfoTag::SetCast(std::vector<SActorInfo> cast)
+{
+  m_cast->swap(cast);
+}
+
+void CVideoInfoTag::AddActor(SActorInfo actor)
+{
+  m_cast->emplace_back(std::move(actor));
 }

@@ -350,7 +350,7 @@ namespace XBMCAddon
             if (alt.which() != second)
               throw WrongTypeException("When using \"cast\" or \"castandrole\" you need to supply a list of tuples for the value in the dictionary");
 
-            videotag.m_cast.clear();
+            videotag.ClearCast();
             for (const auto& castEntry: alt.later())
             {
               // castEntry can be a string meaning it's the actor or it can be a tuple meaning it's the
@@ -360,7 +360,7 @@ namespace XBMCAddon
               info.strName = actor;
               if (castEntry.which() == second)
                 info.strRole = static_cast<const String&>(castEntry.later().second());
-              videotag.m_cast.push_back(info);
+              videotag.AddActor(std::move(info));
             }
           }
           else if (key == "artist")
@@ -642,7 +642,7 @@ namespace XBMCAddon
     void ListItem::setCast(const std::vector<Properties>& actors)
     {
       XBMCAddonUtils::GuiLock lock(languageHook, m_offscreen);
-      GetVideoInfoTag()->m_cast.clear();
+      GetVideoInfoTag()->ClearCast();
       for (const auto& dictionary: actors)
       {
         SActorInfo info;
@@ -659,7 +659,7 @@ namespace XBMCAddon
           else if (key == "order")
             info.order = strtol(value.c_str(), nullptr, 10);
         }
-        GetVideoInfoTag()->m_cast.push_back(std::move(info));
+        GetVideoInfoTag()->AddActor(std::move(info));
       }
     }
 
@@ -722,7 +722,7 @@ namespace XBMCAddon
           else if (key == "language")
             video->m_strLanguage = value;
         }
-        GetVideoInfoTag()->m_streamDetails.AddStream(video);
+        GetVideoInfoTag()->GetStreamDetails().AddStream(video);
       }
       else if (StringUtils::CompareNoCase(cType, "audio") == 0)
       {
@@ -739,7 +739,7 @@ namespace XBMCAddon
           else if (key == "channels")
             audio->m_iChannels = strtol(value.c_str(), nullptr, 10);
         }
-        GetVideoInfoTag()->m_streamDetails.AddStream(audio);
+        GetVideoInfoTag()->GetStreamDetails().AddStream(audio);
       }
       else if (StringUtils::CompareNoCase(cType, "subtitle") == 0)
       {
@@ -752,9 +752,9 @@ namespace XBMCAddon
           if (key == "language")
             subtitle->m_strLanguage = value;
         }
-        GetVideoInfoTag()->m_streamDetails.AddStream(subtitle);
+        GetVideoInfoTag()->GetStreamDetails().AddStream(subtitle);
       }
-      GetVideoInfoTag()->m_streamDetails.DetermineBestStreams();
+      GetVideoInfoTag()->GetStreamDetails().DetermineBestStreams();
     } // end ListItem::addStreamInfo
 
     void ListItem::addContextMenuItems(const std::vector<Tuple<String,String> >& items, bool replaceItems /* = false */)
