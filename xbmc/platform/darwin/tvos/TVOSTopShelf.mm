@@ -46,7 +46,7 @@ CTVOSTopShelf& CTVOSTopShelf::GetInstance()
   return sTopShelf;
 }
 
-void CTVOSTopShelf::SetTopShelfItems(CFileItemList& movies, CFileItemList& tv)
+void CTVOSTopShelf::SetTopShelfTVChannelsItems(CFileItemList& tvchannels)
 {
   @autoreleasepool
   {
@@ -62,6 +62,110 @@ void CTVOSTopShelf::SetTopShelfItems(CFileItemList& movies, CFileItemList& tv)
     auto sharedDefaults = [[NSUserDefaults alloc] initWithSuiteName:[tvosShared getSharedID]];
     auto sharedDictJailbreak = isJailbroken ? [[NSMutableDictionary alloc] initWithCapacity:2 + 2]
                                             : nil; // for jailbroken devices
+    
+    // Remove Movies and TV Shows items
+    [sharedDefaults removeObjectForKey:@"movies"];
+    [sharedDictJailbreak removeObjectForKey:@"movies"];
+    [sharedDefaults removeObjectForKey:@"tvshows"];
+    [sharedDictJailbreak removeObjectForKey:@"tvshows"];
+
+    // store all old thumbs in array
+    auto fileManager = NSFileManager.defaultManager;
+    auto filePaths =
+        [NSMutableSet setWithArray:[fileManager contentsOfDirectoryAtPath:storeUrl.path error:nil]];
+    std::string raPath = storeUrl.path.UTF8String;
+    CVideoThumbLoader thumbLoader;
+
+    auto fillSharedDicts =
+        [&](CFileItemList& videoItems, NSString* videosKey, NSString* videosTitleKey,
+            uint32_t titleStringCode,
+            std::function<std::string(CFileItemPtr videoItem)> getThumbnailForItem,
+            std::function<std::string(CFileItemPtr videoItem)> getTitleForItem) {
+          if (videoItems.Size() <= 0)
+          {
+            // cleanup if there is no RA
+            [sharedDefaults removeObjectForKey:videosKey];
+            [sharedDefaults removeObjectForKey:videosTitleKey];
+            return;
+          }
+
+          const int topShelfSize = std::min(videoItems.Size(), 30);
+          auto videosArray = [NSMutableArray arrayWithCapacity:topShelfSize];
+          for (int i = 0; i < topShelfSize; ++i)
+          {
+            @autoreleasepool
+            {
+              auto videoItem = videoItems.Get(i);
+              if (!videoItem->HasArt("thumb"))
+                thumbLoader.LoadItem(videoItem.get());
+
+              auto thumbnailPath = getThumbnailForItem(videoItem);
+              auto fileName = std::to_string(videoItem->GetVideoInfoTag()->m_iDbId) +
+                              URIUtils::GetFileName(thumbnailPath);
+              auto destPath = URIUtils::AddFileToFolder(raPath, fileName);
+              if (!XFILE::CFile::Exists(destPath))
+                XFILE::CFile::Copy(thumbnailPath, destPath);
+              else
+              {
+                // remove from array so it doesnt get deleted at the end
+                [filePaths removeObject:@(fileName.c_str())];
+              }
+
+              auto title = getTitleForItem(videoItem);
+              CLog::Log(LOGDEBUG, "TopShelf: - adding tv channel to '{}' array: {}",
+                        videosKey.UTF8String, title.c_str());
+              [videosArray addObject:@{
+                @"title" : @(title.c_str()),
+                @"thumb" : @(fileName.c_str()),
+                @"url" : @(Base64::Encode(videoItem->GetPath()).c_str())
+              }];
+            }
+          }
+          [sharedDefaults setObject:videosArray forKey:videosKey];
+          sharedDictJailbreak[videosKey] = videosArray;
+
+          auto tvTitle = @(g_localizeStrings.Get(titleStringCode).c_str());
+          [sharedDefaults setObject:tvTitle forKey:videosTitleKey];
+          sharedDictJailbreak[videosTitleKey] = tvTitle;
+        };
+
+    fillSharedDicts(tvchannels, @"tvchannels", @"tvchannelsTitle", 19023,
+                    [](CFileItemPtr videoItem) { return videoItem->GetArt("thumb"); },
+                    [](CFileItemPtr videoItem) { return videoItem->GetLabel(); });
+
+    // remove unused thumbs from cache folder
+    NSString* strFiles;
+    for (strFiles in filePaths)
+      [fileManager removeItemAtURL:[storeUrl URLByAppendingPathComponent:strFiles isDirectory:NO]
+                             error:nil];
+
+    [sharedDictJailbreak writeToURL:[storeUrl URLByAppendingPathComponent:@"shared.dict"]
+                         atomically:YES];
+    [sharedDefaults synchronize];
+  }
+}
+
+
+void CTVOSTopShelf::SetTopShelfMoviesTvShowsItems(CFileItemList& movies, CFileItemList& tvshows)
+{
+  @autoreleasepool
+  {
+    auto storeUrl = [tvosShared getSharedURL];
+    if (!storeUrl)
+      return;
+
+    storeUrl = [storeUrl URLByAppendingPathComponent:@"RA" isDirectory:YES];
+    const BOOL isJailbroken = [tvosShared isJailbroken];
+    CLog::Log(LOGDEBUG, "TopShelf: using shared path {} (jailbroken: {})", storeUrl.path.UTF8String,
+              isJailbroken ? "yes" : "no");
+
+    auto sharedDefaults = [[NSUserDefaults alloc] initWithSuiteName:[tvosShared getSharedID]];
+    auto sharedDictJailbreak = isJailbroken ? [[NSMutableDictionary alloc] initWithCapacity:2 + 2]
+                                            : nil; // for jailbroken devices
+    
+    // Remove TV channels items
+    [sharedDefaults removeObjectForKey:@"tvchannels"];
+    [sharedDictJailbreak removeObjectForKey:@"tvchannels"];
 
     // store all old thumbs in array
     auto fileManager = NSFileManager.defaultManager;
@@ -136,7 +240,7 @@ void CTVOSTopShelf::SetTopShelfItems(CFileItemList& movies, CFileItemList& tv)
 
     CVideoDatabase videoDb;
     videoDb.Open();
-    fillSharedDicts(tv, @"tv", @"tvTitle", 20387,
+    fillSharedDicts(tvshows, @"tvshows", @"tvshowsTitle", 20387,
                     [&videoDb](CFileItemPtr videoItem) {
                       int season = videoItem->GetVideoInfoTag()->m_iIdSeason;
                       return season > 0 ? videoDb.GetArtForItem(season, MediaTypeSeason, "poster")

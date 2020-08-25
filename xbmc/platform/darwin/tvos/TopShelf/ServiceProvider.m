@@ -43,8 +43,9 @@
   __auto_type wrapperIdentifier =
       [[TVContentIdentifier alloc] initWithIdentifier:@"shelf-wrapper" container:nil];
 
-  NSArray* movieArray = nil;
-  NSArray* tvArray = nil;
+  NSArray* moviesArray = nil;
+  NSArray* tvshowsArray = nil;
+  NSArray* tvchannelsArray = nil;
   NSDictionary* sharedDict = nil;
 
   if ([tvosShared isJailbroken])
@@ -53,13 +54,15 @@
         [storeUrl URLByAppendingPathComponent:@"shared.dict" isDirectory:NO];
     sharedDict = [NSDictionary dictionaryWithContentsOfFile:[sharedDictUrl path]];
 
-    movieArray = [sharedDict valueForKey:@"movies"];
-    tvArray = [sharedDict valueForKey:@"tv"];
+    moviesArray = [sharedDict valueForKey:@"movies"];
+    tvshowsArray = [sharedDict valueForKey:@"tvshows"];
+    tvchannelsArray = [sharedDict valueForKey:@"tvchannels"];
   }
   else
   {
-    movieArray = [shared objectForKey:@"movies"];
-    tvArray = [shared valueForKey:@"tv"];
+    moviesArray = [shared objectForKey:@"movies"];
+    tvshowsArray = [shared valueForKey:@"tvshows"];
+    tvchannelsArray = [shared valueForKey:@"tvchannels"];
   }
 
   __auto_type mainAppBundle = [tvosShared mainAppBundle];
@@ -102,20 +105,31 @@
     return contentItems;
   };
 
-  if ([movieArray count] > 0)
+  if([moviesArray count] > 0 || [tvshowsArray count] > 0)
   {
-    __auto_type itemMovie = [[TVContentItem alloc] initWithContentIdentifier:wrapperIdentifier];
-    itemMovie.title = [(sharedDict ?: shared) valueForKey:@"moviesTitle"];
-    itemMovie.topShelfItems = contentItemsFrom(movieArray);
-    [topShelfItems addObject:itemMovie];
-  }
+    if ([moviesArray count] > 0)
+    {
+      __auto_type itemMovie = [[TVContentItem alloc] initWithContentIdentifier:wrapperIdentifier];
+      itemMovie.title = [(sharedDict ?: shared) valueForKey:@"moviesTitle"];
+      itemMovie.topShelfItems = contentItemsFrom(moviesArray);
+      [topShelfItems addObject:itemMovie];
+    }
 
-  if ([tvArray count] > 0)
+    if ([tvshowsArray count] > 0)
+    {
+      __auto_type itemTvshow = [[TVContentItem alloc] initWithContentIdentifier:wrapperIdentifier];
+      itemTvshow.title = [(sharedDict ?: shared) valueForKey:@"tvshowsTitle"];
+      itemTvshow.topShelfItems = contentItemsFrom(tvshowsArray);
+      [topShelfItems addObject:itemTvshow];
+    }
+  }
+  
+  else if ([tvchannelsArray count] > 0)
   {
-    __auto_type itemTv = [[TVContentItem alloc] initWithContentIdentifier:wrapperIdentifier];
-    itemTv.title = [(sharedDict ?: shared) valueForKey:@"tvTitle"];
-    itemTv.topShelfItems = contentItemsFrom(tvArray);
-    [topShelfItems addObject:itemTv];
+    __auto_type itemTvchannel = [[TVContentItem alloc] initWithContentIdentifier:wrapperIdentifier];
+    itemTvchannel.title = [(sharedDict ?: shared) valueForKey:@"tvchannelsTitle"];
+    itemTvchannel.topShelfItems = contentItemsFrom(tvchannelsArray);
+    [topShelfItems addObject:itemTvchannel];
   }
 
   return topShelfItems;
