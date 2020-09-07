@@ -15,7 +15,8 @@ DEPENDS = \
 	taglib libusb libnfs meson-cross-file \
 	pythonmodule-pil pythonmodule-pycryptodome pythonmodule-setuptools \
 	libxslt ffmpeg crossguid libudfread \
-	libdvdread libdvdnav libdvdcss p8-platform flatbuffers dav1d
+	libdvdread libdvdnav libdvdcss p8-platform flatbuffers dav1d \
+	neptune platinum
 
 ifeq ($(ENABLE_GPLV3),yes)
   DEPENDS+=samba-gplv3 libcdio-gplv3
@@ -119,6 +120,7 @@ taglib: $(ZLIB)
 dav1d: meson-cross-file
 fribidi: meson-cross-file
 libspdlog: libfmt
+platinum: neptune
 
 .installed-$(PLATFORM): $(DEPENDS)
 	touch $@
