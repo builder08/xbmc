@@ -25,16 +25,14 @@
 
 #include "platform/freebsd/OptionalsReg.h"
 #include "platform/linux/OptionalsReg.h"
+#include "platform/linux/SessionUtils.h"
 #include "platform/linux/powermanagement/LinuxPowerSyscall.h"
 
 #include <string.h>
 
 using namespace KODI::WINDOWING::GBM;
 
-CWinSystemGbm::CWinSystemGbm() :
-  m_DRM(nullptr),
-  m_GBM(new CGBMUtils),
-  m_libinput(new CLibInputHandler)
+CWinSystemGbm::CWinSystemGbm() : m_DRM(nullptr), m_GBM(new CGBMUtils)
 {
   std::string envSink;
   if (getenv("KODI_AE_SINK"))
@@ -77,26 +75,36 @@ CWinSystemGbm::CWinSystemGbm() :
   m_dpms = std::make_shared<CGBMDPMSSupport>();
   CLinuxPowerSyscall::Register();
   m_lirc.reset(OPTIONALS::LircRegister());
-  m_libinput->Start();
+
+  m_session = CSessionUtils::GetSession();
 }
 
 bool CWinSystemGbm::InitWindowSystem()
 {
-  m_DRM = std::make_shared<CDRMAtomic>();
+  if (!m_session->Connect())
+  {
+    m_session.reset();
+    return false;
+  }
+
+  m_libinput.reset(new CLibInputHandler(m_session));
+  m_libinput->Start();
+
+  m_DRM = std::make_shared<CDRMAtomic>(m_session);
 
   if (!m_DRM->InitDrm())
   {
     CLog::Log(LOGERROR, "CWinSystemGbm::%s - failed to initialize Atomic DRM", __FUNCTION__);
     m_DRM.reset();
 
-    m_DRM = std::make_shared<CDRMLegacy>();
+    m_DRM = std::make_shared<CDRMLegacy>(m_session);
 
     if (!m_DRM->InitDrm())
     {
       CLog::Log(LOGERROR, "CWinSystemGbm::%s - failed to initialize Legacy DRM", __FUNCTION__);
       m_DRM.reset();
 
-      m_DRM = std::make_shared<COffScreenModeSetting>();
+      m_DRM = std::make_shared<COffScreenModeSetting>(m_session);
       if (!m_DRM->InitDrm())
       {
         CLog::Log(LOGERROR, "CWinSystemGbm::%s - failed to initialize off screen DRM", __FUNCTION__);
@@ -120,9 +128,15 @@ bool CWinSystemGbm::DestroyWindowSystem()
 {
   m_GBM->DestroyDevice();
 
+  if (m_DRM)
+    m_DRM->DestroyDrm();
+
   CLog::Log(LOGDEBUG, "CWinSystemGbm::%s - deinitialized DRM", __FUNCTION__);
 
   m_libinput.reset();
+
+  if (m_session)
+    m_session->Destroy();
 
   return true;
 }
