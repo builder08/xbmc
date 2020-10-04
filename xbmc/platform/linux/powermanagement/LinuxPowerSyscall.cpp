@@ -8,11 +8,10 @@
 
 #include "LinuxPowerSyscall.h"
 #include "FallbackPowerSyscall.h"
-#if defined(HAS_DBUS)
-#include "ConsoleUPowerSyscall.h"
+#if defined(HAS_SDBUSCPP)
 #include "LogindUPowerSyscall.h"
 #include "UPowerSyscall.h"
-#endif // HAS_DBUS
+#endif // HAS_SDBUSCPP
 
 #include <functional>
 #include <list>
@@ -21,7 +20,7 @@
 
 IPowerSyscall* CLinuxPowerSyscall::CreateInstance()
 {
-#if defined(HAS_DBUS)
+#if defined(HAS_SDBUSCPP)
   std::unique_ptr<IPowerSyscall> bestPowerManager;
   std::unique_ptr<IPowerSyscall> currPowerManager;
   int bestCount = -1;
@@ -30,8 +29,6 @@ IPowerSyscall* CLinuxPowerSyscall::CreateInstance()
   std::list< std::pair< std::function<bool()>,
                         std::function<IPowerSyscall*()> > > powerManagers =
   {
-    std::make_pair(CConsoleUPowerSyscall::HasConsoleKitAndUPower,
-                   [] { return new CConsoleUPowerSyscall(); }),
     std::make_pair(CLogindUPowerSyscall::HasLogind,
                    [] { return new CLogindUPowerSyscall(); }),
     std::make_pair(CUPowerSyscall::HasUPower,
@@ -55,7 +52,7 @@ IPowerSyscall* CLinuxPowerSyscall::CreateInstance()
   if (bestPowerManager)
     return bestPowerManager.release();
   else
-#endif // HAS_DBUS
+#endif // HAS_SDBUSCPP
     return new CFallbackPowerSyscall();
 }
 

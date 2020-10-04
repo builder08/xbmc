@@ -61,6 +61,7 @@ if(UNIX)
   option(ENABLE_INTERNAL_GTEST "Enable internal gtest?" OFF)
   option(ENABLE_INTERNAL_UDFREAD "Enable internal udfread?" OFF)
   option(ENABLE_INTERNAL_SPDLOG "Enable internal spdlog?" OFF)
+  option(ENABLE_INTERNAL_SDBUSCPP "Enable internal sdbus-cpp?" OFF)
 endif()
 # System options
 if(NOT WIN32)
@@ -147,7 +148,6 @@ set(optional_deps Alsa
                   CEC
                   ClangFormat
                   Dav1d
-                  DBus
                   Iso9660pp
                   LCMS2
                   LircClient
@@ -157,6 +157,7 @@ set(optional_deps Alsa
                   Plist
                   PulseAudio
                   Python
+                  SDBuscpp
                   SmbClient
                   Sndio
                   UDEV
