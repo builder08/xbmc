@@ -155,26 +155,34 @@ set(HEADERS DDSImage.h
             XBTF.h
             XBTFReader.h)
 
-if(OPENGL_FOUND)
-  list(APPEND SOURCES GUIFontTTFGL.cpp
-                      GUITextureGL.cpp
-                      Shader.cpp
-                      TextureGL.cpp)
-  list(APPEND HEADERS GUIFontTTFGL.h
-                      GUITextureGL.h
-                      Shader.h
-                      TextureGL.h)
-endif()
+if(OPENGL_FOUND OR OPENGLES_FOUND)
+  list(APPEND SOURCES GUIFontTTFGLBase.cpp
+                      TextureGLBase.cpp)
 
-if(OPENGLES_FOUND)
-  list(APPEND SOURCES GUIFontTTFGL.cpp
-                      GUITextureGLES.cpp
-                      Shader.cpp
-                      TextureGL.cpp)
-  list(APPEND HEADERS GUIFontTTFGL.h
-                      GUITextureGLES.h
-                      Shader.h
-                      TextureGL.h)
+  list(APPEND HEADERS GUIFontTTFGLBase.h
+                      TextureGLBase.h)
+
+  if(OPENGL_FOUND)
+    list(APPEND SOURCES GUIFontTTFGL.cpp
+                        GUITextureGL.cpp
+                        Shader.cpp
+                        TextureGL.cpp)
+    list(APPEND HEADERS GUIFontTTFGL.h
+                        GUITextureGL.h
+                        Shader.h
+                        TextureGL.h)
+  endif()
+
+  if(OPENGLES_FOUND)
+    list(APPEND SOURCES GUIFontTTFGLES.cpp
+                        GUITextureGLES.cpp
+                        Shader.cpp
+                        TextureGLES.cpp)
+    list(APPEND HEADERS GUIFontTTFGLES.h
+                        GUITextureGLES.h
+                        Shader.h
+                        TextureGLES.h)
+  endif()
 endif()
 
 if(CORE_SYSTEM_NAME STREQUAL windows OR CORE_SYSTEM_NAME STREQUAL windowsstore)

@@ -15,30 +15,30 @@
 
 #include "system_gl.h"
 
-struct PackedVertex
-{
-  float x, y, z;
-  float u1, v1;
-  float u2, v2;
-};
-typedef std::vector<PackedVertex> PackedVertices;
-
 class CRenderSystemGLES;
 
-class CGUITextureGLES : public CGUITextureBase
+class CGUITextureGLES : public CGUITexture
 {
 public:
   CGUITextureGLES(float posX, float posY, float width, float height, const CTextureInfo& texture);
-  static void DrawQuad(const CRect &coords, UTILS::Color color, CBaseTexture *texture = NULL, const CRect *texCoords = NULL);
+  CGUITextureGLES(const CGUITexture& left);
+
 protected:
   void Begin(UTILS::Color color) override;
   void Draw(float* x, float* y, float* z, const CRect& texture, const CRect& diffuse, int orientation) override;
   void End() override;
 
+private:
   GLubyte m_col[4];
 
-  PackedVertices m_packedVertices;
+  struct PackedVertex
+  {
+    float x, y, z;
+    float u1, v1;
+    float u2, v2;
+  };
+
+  std::vector<PackedVertex> m_packedVertices;
   std::vector<GLushort> m_idx;
   CRenderSystemGLES *m_renderSystem;
 };
-

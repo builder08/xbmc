@@ -16,19 +16,24 @@
 #include "GUITexture.h"
 #include "utils/Color.h"
 
-class CGUITextureD3D : public CGUITextureBase
+class CGUITextureD3D : public CGUITexture
 {
 public:
   CGUITextureD3D(float posX, float posY, float width, float height, const CTextureInfo& texture);
+  CGUITextureD3D(const CGUITexture& left);
+
   ~CGUITextureD3D();
-  static void DrawQuad(const CRect &coords, UTILS::Color color, CBaseTexture *texture = NULL, const CRect *texCoords = NULL);
 
 protected:
-  void Begin(UTILS::Color color);
-  void Draw(float *x, float *y, float *z, const CRect &texture, const CRect &diffuse, int orientation);
-  void End();
+  void Begin(UTILS::Color color) override;
+  void Draw(float* x,
+            float* y,
+            float* z,
+            const CRect& texture,
+            const CRect& diffuse,
+            int orientation) override;
+  void End() override;
 
 private:
   UTILS::Color       m_col;
 };
-

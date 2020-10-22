@@ -141,7 +141,8 @@ private:
 XBMC_GLOBAL_REF(CFreeTypeLibrary, g_freeTypeLibrary); // our freetype library
 #define g_freeTypeLibrary XBMC_GLOBAL_USE(CFreeTypeLibrary)
 
-CGUIFontTTFBase::CGUIFontTTFBase(const std::string& strFileName) : m_staticCache(*this), m_dynamicCache(*this)
+CGUIFontTTF::CGUIFontTTF(const std::string& strFileName)
+  : m_staticCache(*this), m_dynamicCache(*this)
 {
   m_texture = NULL;
   m_char = NULL;
@@ -168,17 +169,17 @@ CGUIFontTTFBase::CGUIFontTTFBase(const std::string& strFileName) : m_staticCache
   m_renderSystem = CServiceBroker::GetRenderSystem();
 }
 
-CGUIFontTTFBase::~CGUIFontTTFBase(void)
+CGUIFontTTF::~CGUIFontTTF(void)
 {
   Clear();
 }
 
-void CGUIFontTTFBase::AddReference()
+void CGUIFontTTF::AddReference()
 {
   m_referenceCount++;
 }
 
-void CGUIFontTTFBase::RemoveReference()
+void CGUIFontTTF::RemoveReference()
 {
   // delete this object when it's reference count hits zero
   m_referenceCount--;
@@ -187,7 +188,7 @@ void CGUIFontTTFBase::RemoveReference()
 }
 
 
-void CGUIFontTTFBase::ClearCharacterCache()
+void CGUIFontTTF::ClearCharacterCache()
 {
   delete(m_texture);
 
@@ -205,7 +206,7 @@ void CGUIFontTTFBase::ClearCharacterCache()
   m_textureHeight = 0;
 }
 
-void CGUIFontTTFBase::Clear()
+void CGUIFontTTF::Clear()
 {
   delete(m_texture);
   m_texture = NULL;
@@ -232,7 +233,8 @@ void CGUIFontTTFBase::Clear()
   m_fontFileInMemory.clear();
 }
 
-bool CGUIFontTTFBase::Load(const std::string& strFilename, float height, float aspect, float lineSpacing, bool border)
+bool CGUIFontTTF::Load(
+    const std::string& strFilename, float height, float aspect, float lineSpacing, bool border)
 {
   // we now know that this object is unique - only the GUIFont objects are non-unique, so no need
   // for reference tracking these fonts
@@ -303,7 +305,7 @@ bool CGUIFontTTFBase::Load(const std::string& strFilename, float height, float a
   m_textureHeight = 0;
   m_textureWidth = ((m_cellHeight * CHARS_PER_TEXTURE_LINE) & ~63) + 64;
 
-  m_textureWidth = CBaseTexture::PadPow2(m_textureWidth);
+  m_textureWidth = CTexture::PadPow2(m_textureWidth);
 
   if (m_textureWidth > m_renderSystem->GetMaxTextureSize())
     m_textureWidth = m_renderSystem->GetMaxTextureSize();
@@ -320,7 +322,7 @@ bool CGUIFontTTFBase::Load(const std::string& strFilename, float height, float a
   return true;
 }
 
-void CGUIFontTTFBase::Begin()
+void CGUIFontTTF::Begin()
 {
   if (m_nestedBeginCount == 0 && m_texture != NULL && FirstBegin())
   {
@@ -331,7 +333,7 @@ void CGUIFontTTFBase::Begin()
   m_nestedBeginCount++;
 }
 
-void CGUIFontTTFBase::End()
+void CGUIFontTTF::End()
 {
   if (m_nestedBeginCount == 0)
     return;
@@ -342,7 +344,13 @@ void CGUIFontTTFBase::End()
   LastEnd();
 }
 
-void CGUIFontTTFBase::DrawTextInternal(float x, float y, const std::vector<UTILS::Color> &colors, const vecText &text, uint32_t alignment, float maxPixelWidth, bool scrolling)
+void CGUIFontTTF::DrawTextInternal(float x,
+                                   float y,
+                                   const std::vector<UTILS::Color>& colors,
+                                   const vecText& text,
+                                   uint32_t alignment,
+                                   float maxPixelWidth,
+                                   bool scrolling)
 {
   if (text.empty())
   {
@@ -552,7 +560,7 @@ void CGUIFontTTFBase::DrawTextInternal(float x, float y, const std::vector<UTILS
 }
 
 // this routine assumes a single line (i.e. it was called from GUITextLayout)
-float CGUIFontTTFBase::GetTextWidthInternal(vecText::const_iterator start, vecText::const_iterator end)
+float CGUIFontTTF::GetTextWidthInternal(vecText::const_iterator start, vecText::const_iterator end)
 {
   float width = 0;
   while (start != end)
@@ -572,33 +580,33 @@ float CGUIFontTTFBase::GetTextWidthInternal(vecText::const_iterator start, vecTe
   return width;
 }
 
-float CGUIFontTTFBase::GetCharWidthInternal(character_t ch)
+float CGUIFontTTF::GetCharWidthInternal(character_t ch)
 {
   Character *c = GetCharacter(ch);
   if (c) return c->advance;
   return 0;
 }
 
-float CGUIFontTTFBase::GetTextHeight(float lineSpacing, int numLines) const
+float CGUIFontTTF::GetTextHeight(float lineSpacing, int numLines) const
 {
   return (float)(numLines - 1) * GetLineHeight(lineSpacing) + m_cellHeight;
 }
 
-float CGUIFontTTFBase::GetLineHeight(float lineSpacing) const
+float CGUIFontTTF::GetLineHeight(float lineSpacing) const
 {
   if (m_face)
     return lineSpacing * m_face->size->metrics.height / 64.0f;
   return 0.0f;
 }
 
-const unsigned int CGUIFontTTFBase::spacing_between_characters_in_texture = 1;
+const unsigned int CGUIFontTTF::spacing_between_characters_in_texture = 1;
 
-unsigned int CGUIFontTTFBase::GetTextureLineHeight() const
+unsigned int CGUIFontTTF::GetTextureLineHeight() const
 {
   return m_cellHeight + spacing_between_characters_in_texture;
 }
 
-CGUIFontTTFBase::Character* CGUIFontTTFBase::GetCharacter(character_t chr)
+CGUIFontTTF::Character* CGUIFontTTF::GetCharacter(character_t chr)
 {
   wchar_t letter = (wchar_t)(chr & 0xffff);
   character_t style = (chr & 0x7000000) >> 24;
@@ -685,7 +693,7 @@ CGUIFontTTFBase::Character* CGUIFontTTFBase::GetCharacter(character_t chr)
   return m_char + low;
 }
 
-bool CGUIFontTTFBase::CacheCharacter(wchar_t letter, uint32_t style, Character *ch)
+bool CGUIFontTTF::CacheCharacter(wchar_t letter, uint32_t style, Character* ch)
 {
   int glyph_index = FT_Get_Char_Index( m_face, letter );
 
@@ -748,7 +756,7 @@ bool CGUIFontTTFBase::CacheCharacter(wchar_t letter, uint32_t style, Character *
           return false;
         }
 
-        CBaseTexture* newTexture = NULL;
+        CTexture* newTexture = NULL;
         newTexture = ReallocTexture(newHeight);
         if(newTexture == NULL)
         {
@@ -797,7 +805,12 @@ bool CGUIFontTTFBase::CacheCharacter(wchar_t letter, uint32_t style, Character *
   return true;
 }
 
-void CGUIFontTTFBase::RenderCharacter(float posX, float posY, const Character *ch, UTILS::Color color, bool roundX, std::vector<SVertex> &vertices)
+void CGUIFontTTF::RenderCharacter(float posX,
+                                  float posY,
+                                  const Character* ch,
+                                  UTILS::Color color,
+                                  bool roundX,
+                                  std::vector<SVertex>& vertices)
 {
   // actual image width isn't same as the character width as that is
   // just baseline width and height should include the descent
@@ -862,84 +875,15 @@ void CGUIFontTTFBase::RenderCharacter(float posX, float posY, const Character *c
   z[2] = (float)MathUtils::round_int(CServiceBroker::GetWinSystem()->GetGfxContext().ScaleFinalZCoord(vertex.x2, vertex.y2));
   z[3] = (float)MathUtils::round_int(CServiceBroker::GetWinSystem()->GetGfxContext().ScaleFinalZCoord(vertex.x1, vertex.y2));
 
-  // tex coords converted to 0..1 range
-  float tl = texture.x1 * m_textureScaleX;
-  float tr = texture.x2 * m_textureScaleX;
-  float tt = texture.y1 * m_textureScaleY;
-  float tb = texture.y2 * m_textureScaleY;
-
   vertices.resize(vertices.size() + 4);
   SVertex* v = &vertices[vertices.size() - 4];
   m_color = color;
 
-#if !defined(HAS_DX)
-  unsigned char r = GET_R(color)
-              , g = GET_G(color)
-              , b = GET_B(color)
-              , a = GET_A(color);
-#endif
-
-  for(int i = 0; i < 4; i++)
-  {
-#ifdef HAS_DX
-    CD3DHelper::XMStoreColor(&v[i].col, color);
-#else
-    v[i].r = r;
-    v[i].g = g;
-    v[i].b = b;
-    v[i].a = a;
-#endif
-  }
-
-#if defined(HAS_DX)
-  for(int i = 0; i < 4; i++)
-  {
-    v[i].x = x[i];
-    v[i].y = y[i];
-    v[i].z = z[i];
-  }
-
-  v[0].u = tl;
-  v[0].v = tt;
-
-  v[1].u = tr;
-  v[1].v = tt;
-
-  v[2].u = tr;
-  v[2].v = tb;
-
-  v[3].u = tl;
-  v[3].v = tb;
-#else
-  // GL / GLES uses triangle strips, not quads, so have to rearrange the vertex order
-  v[0].u = tl;
-  v[0].v = tt;
-  v[0].x = x[0];
-  v[0].y = y[0];
-  v[0].z = z[0];
-
-  v[1].u = tl;
-  v[1].v = tb;
-  v[1].x = x[3];
-  v[1].y = y[3];
-  v[1].z = z[3];
-
-  v[2].u = tr;
-  v[2].v = tt;
-  v[2].x = x[1];
-  v[2].y = y[1];
-  v[2].z = z[1];
-
-  v[3].u = tr;
-  v[3].v = tb;
-  v[3].x = x[2];
-  v[3].y = y[2];
-  v[3].z = z[2];
-#endif
+  RenderCharacter(&texture, v, x, y, z);
 }
 
 // Oblique code - original taken from freetype2 (ftsynth.c)
-void CGUIFontTTFBase::ObliqueGlyph(FT_GlyphSlot slot)
+void CGUIFontTTF::ObliqueGlyph(FT_GlyphSlot slot)
 {
   /* only oblique outline glyphs */
   if ( slot->format != FT_GLYPH_FORMAT_OUTLINE )
@@ -962,7 +906,7 @@ void CGUIFontTTFBase::ObliqueGlyph(FT_GlyphSlot slot)
 
 
 // Embolden code - original taken from freetype2 (ftsynth.c)
-void CGUIFontTTFBase::SetGlyphStrength(FT_GlyphSlot slot, int glyphStrength)
+void CGUIFontTTF::SetGlyphStrength(FT_GlyphSlot slot, int glyphStrength)
 {
   if ( slot->format != FT_GLYPH_FORMAT_OUTLINE )
     return;

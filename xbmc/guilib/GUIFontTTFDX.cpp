@@ -7,12 +7,19 @@
  */
 
 #include "GUIFontTTFDX.h"
+
 #include "GUIFontManager.h"
 #include "GUIShaderDX.h"
 #include "Texture.h"
 #include "rendering/dx/DeviceResources.h"
 #include "rendering/dx/RenderContext.h"
 #include "utils/log.h"
+
+#include <DirectXMath.h>
+#include <DirectXPackedVector.h>
+
+using namespace DirectX;
+using namespace DirectX::PackedVector;
 
 // stuff for freetype
 #include <ft2build.h>
@@ -26,8 +33,13 @@ using namespace Microsoft::WRL;
 #include FT_FREETYPE_H
 #include FT_GLYPH_H
 
-CGUIFontTTFDX::CGUIFontTTFDX(const std::string& strFileName)
-: CGUIFontTTFBase(strFileName)
+
+CGUIFontTTF* CGUIFontTTF::GetGUIFontTTF(const std::string& strFileName)
+{
+  return new CGUIFontTTFDX(strFileName);
+}
+
+CGUIFontTTFDX::CGUIFontTTFDX(const std::string& strFileName) : CGUIFontTTF(strFileName)
 {
   m_speedupTexture = nullptr;
   m_vertexBuffer   = nullptr;
@@ -75,7 +87,7 @@ void CGUIFontTTFDX::LastEnd()
   if (!pContext)
     return;
 
-  typedef CGUIFontTTFBase::CTranslatedVertices trans;
+  typedef CGUIFontTTF::CTranslatedVertices trans;
   bool transIsEmpty = std::all_of(m_vertexTrans.begin(), m_vertexTrans.end(),
                                   [](trans& _) { return _.vertexBuffer->size <= 0; });
   // no chars to render
@@ -215,7 +227,7 @@ void CGUIFontTTFDX::ClearReference(CGUIFontTTFDX* font, CD3DBuffer* pBuffer)
     font->m_buffers.erase(it);
 }
 
-CBaseTexture* CGUIFontTTFDX::ReallocTexture(unsigned int& newHeight)
+CTexture* CGUIFontTTFDX::ReallocTexture(unsigned int& newHeight)
 {
   assert(newHeight != 0);
   assert(m_textureWidth != 0);
@@ -361,4 +373,29 @@ void CGUIFontTTFDX::OnDestroyDevice(bool fatal)
 
 void CGUIFontTTFDX::OnCreateDevice(void)
 {
+}
+
+void CGUIFontTTFDX::RenderCharacter(CRect* texture, SVertex* v, float* x, float* y, float* z)
+{
+  for (int i = 0; i < 4; i++)
+    CD3DHelper::XMStoreColor(&v[i].col, m_color);
+
+  for (int i = 0; i < 4; i++)
+  {
+    v[i].x = x[i];
+    v[i].y = y[i];
+    v[i].z = z[i];
+  }
+
+  v[0].u = texture.x1 * m_textureScaleX;
+  v[0].v = texture.y1 * m_textureScaleY;
+
+  v[1].u = texture.x2 * m_textureScaleX;
+  v[1].v = texture.y1 * m_textureScaleY;
+
+  v[2].u = texture.x2 * m_textureScaleX;
+  v[2].v = texture.y2 * m_textureScaleY;
+
+  v[3].u = texture.x1 * m_textureScaleX;
+  v[3].v = texture.y2 * m_textureScaleY;
 }

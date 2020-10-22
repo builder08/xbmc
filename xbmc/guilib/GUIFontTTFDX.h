@@ -27,7 +27,7 @@
  \ingroup textures
  \brief
  */
-class CGUIFontTTFDX : public CGUIFontTTFBase, public ID3DResource
+class CGUIFontTTFDX : public CGUIFontTTF, public ID3DResource
 {
 public:
   explicit CGUIFontTTFDX(const std::string& strFileName);
@@ -45,9 +45,10 @@ public:
   static void DestroyStaticIndexBuffer(void);
 
 protected:
-  CBaseTexture* ReallocTexture(unsigned int& newHeight) override;
+  CTexture* ReallocTexture(unsigned int& newHeight) override;
   bool CopyCharToTexture(FT_BitmapGlyph bitGlyph, unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2) override;
   void DeleteHardwareTexture() override;
+  void RenderCharacter(CRect* texture, SVertex* v, float* x, float* y, float* z) override;
 
 private:
   bool UpdateDynamicVertexBuffer(const SVertex* pSysMem, unsigned int count);
@@ -62,4 +63,3 @@ private:
   static bool m_staticIndexBufferCreated;
   static Microsoft::WRL::ComPtr<ID3D11Buffer> m_staticIndexBuffer;
 };
-

@@ -16,17 +16,9 @@
 #include "utils/Color.h"
 #include "utils/Geometry.h"
 
-#ifdef HAS_DX
-#include <DirectXMath.h>
-#include <DirectXPackedVector.h>
-
-using namespace DirectX;
-using namespace DirectX::PackedVector;
-#endif
-
 constexpr size_t LOOKUPTABLE_SIZE = 256 * 8;
 
-class CBaseTexture;
+class CTexture;
 class CRenderSystemBase;
 
 struct FT_FaceRec_;
@@ -49,29 +41,17 @@ typedef std::vector<character_t> vecText;
  \brief
  */
 
-struct SVertex
-{
-  float x, y, z;
-#ifdef HAS_DX
-  XMFLOAT4 col;
-#else
-  unsigned char r, g, b, a;
-#endif
-  float u, v;
-};
-
-
 #include "GUIFontCache.h"
 
-
-class CGUIFontTTFBase
+class CGUIFontTTF
 {
   friend class CGUIFont;
 
 public:
+  explicit CGUIFontTTF(const std::string& strFileName);
+  virtual ~CGUIFontTTF(void);
 
-  explicit CGUIFontTTFBase(const std::string& strFileName);
-  virtual ~CGUIFontTTFBase(void);
+  static CGUIFontTTF* GetGUIFontTTF(const std::string& strFileName);
 
   void Clear();
 
@@ -115,15 +95,16 @@ protected:
   void RenderCharacter(float posX, float posY, const Character *ch, UTILS::Color color, bool roundX, std::vector<SVertex> &vertices);
   void ClearCharacterCache();
 
-  virtual CBaseTexture* ReallocTexture(unsigned int& newHeight) = 0;
+  virtual CTexture* ReallocTexture(unsigned int& newHeight) = 0;
   virtual bool CopyCharToTexture(FT_BitmapGlyph bitGlyph, unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2) = 0;
   virtual void DeleteHardwareTexture() = 0;
+  virtual void RenderCharacter(CRect* texture, SVertex* v, float* x, float* y, float* z) = 0;
 
   // modifying glyphs
   void SetGlyphStrength(FT_GlyphSlot slot, int glyphStrength);
   static void ObliqueGlyph(FT_GlyphSlot slot);
 
-  CBaseTexture* m_texture;        // texture that holds our rendered characters (8bit alpha only)
+  CTexture* m_texture; // texture that holds our rendered characters (8bit alpha only)
 
   unsigned int m_textureWidth;       // width of our texture
   unsigned int m_textureHeight;      // height of our texture
@@ -185,16 +166,8 @@ protected:
 private:
   virtual bool FirstBegin() = 0;
   virtual void LastEnd() = 0;
-  CGUIFontTTFBase(const CGUIFontTTFBase&) = delete;
-  CGUIFontTTFBase& operator=(const CGUIFontTTFBase&) = delete;
+  CGUIFontTTF(const CGUIFontTTF&) = delete;
+  CGUIFontTTF& operator=(const CGUIFontTTF&) = delete;
   int m_referenceCount;
 };
-
-#if defined(HAS_GL) || defined(HAS_GLES)
-#include "GUIFontTTFGL.h"
-#define CGUIFontTTF CGUIFontTTFGL
-#elif defined(HAS_DX)
-#include "GUIFontTTFDX.h"
-#define CGUIFontTTF CGUIFontTTFDX
-#endif
 
