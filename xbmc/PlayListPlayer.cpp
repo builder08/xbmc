@@ -759,16 +759,24 @@ void CPlayListPlayer::Swap(int iPlaylist, int indexItem1, int indexItem2)
 
 void CPlayListPlayer::AnnouncePropertyChanged(int iPlaylist, const std::string &strProperty, const CVariant &value)
 {
-  if (strProperty.empty() || value.isNull() ||
-     (iPlaylist == PLAYLIST_VIDEO && !g_application.GetAppPlayer().IsPlayingVideo()) ||
-     (iPlaylist == PLAYLIST_MUSIC && !g_application.GetAppPlayer().IsPlayingAudio()))
+  if (strProperty.empty() || value.isNull())
     return;
 
-  CVariant data;
-  data["player"]["playerid"] = iPlaylist;
-  data["property"][strProperty] = value;
+  CVariant dataPlaylist;
+  dataPlaylist["playlist"]["playlistid"] = iPlaylist;
+  dataPlaylist["property"][strProperty] = value;
+  CServiceBroker::GetAnnouncementManager()->Announce(ANNOUNCEMENT::Playlist, "OnPropertyChanged",
+                                                     dataPlaylist);
+
+  if ((iPlaylist == PLAYLIST_VIDEO && !g_application.GetAppPlayer().IsPlayingVideo()) ||
+      (iPlaylist == PLAYLIST_MUSIC && !g_application.GetAppPlayer().IsPlayingAudio()))
+    return;
+
+  CVariant dataPlayer;
+  dataPlayer["player"]["playerid"] = iPlaylist;
+  dataPlayer["property"][strProperty] = value;
   CServiceBroker::GetAnnouncementManager()->Announce(ANNOUNCEMENT::Player, "OnPropertyChanged",
-                                                     data);
+                                                     dataPlayer);
 }
 
 int PLAYLIST::CPlayListPlayer::GetMessageMask()
@@ -837,9 +845,23 @@ void PLAYLIST::CPlayListPlayer::OnApplicationMessage(KODI::MESSAGING::ThreadMess
     SetShuffle(pMsg->param1, pMsg->param2 > 0);
     break;
 
+  case TMSG_PLAYLISTPLAYER_IS_SHUFFLED:
+  {
+    auto shuffled = static_cast<bool*>(pMsg->lpVoid);
+    *shuffled = IsShuffled(pMsg->param1);
+    break;
+  }
+
   case TMSG_PLAYLISTPLAYER_REPEAT:
     SetRepeat(pMsg->param1, (PLAYLIST::REPEAT_STATE)pMsg->param2);
     break;
+
+  case TMSG_PLAYLISTPLAYER_GET_REPEAT:
+  {
+    auto state = static_cast<REPEAT_STATE*>(pMsg->lpVoid);
+    *state = GetRepeat(pMsg->param1);
+    break;
+  }
 
   case TMSG_PLAYLISTPLAYER_GET_ITEMS:
     if (pMsg->lpVoid)

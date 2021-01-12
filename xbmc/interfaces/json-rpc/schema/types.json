@@ -137,13 +137,15 @@
   },
   "Playlist.Property.Name": {
     "type": "string",
-    "enum": [ "type", "size" ]
+    "enum": [ "type", "size", "repeat", "shuffled" ]
   },
   "Playlist.Property.Value": {
     "type": "object",
     "properties": {
       "type": { "$ref": "Playlist.Type" },
-      "size": { "type": "integer", "minimum": 0 }
+      "size": { "type": "integer", "minimum": 0 },
+      "repeat": { "$ref": "Player.Repeat" },
+      "shuffled": { "type": "boolean" }
     }
   },
   "Playlist.Position": {
@@ -386,6 +388,12 @@
     "properties": {
       "item": { "$ref": "Notifications.Item", "required": true },
       "player": { "$ref": "Player.Notifications.Player", "required": true }
+    }
+  },
+  "Playlist.Notifications.Playlist": {
+    "type": "object",
+    "properties": {
+      "playlistid": { "$ref": "Player.Id", "required": true }
     }
   },
   "Item.Fields.Base": {
