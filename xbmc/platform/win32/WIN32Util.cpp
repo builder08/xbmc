@@ -16,7 +16,6 @@
 #include "guilib/LocalizeStrings.h"
 #include "my_ntddscsi.h"
 #include "storage/MediaManager.h"
-#include "storage/cdioSupport.h"
 #include "utils/CharsetConverter.h"
 #include "utils/StringUtils.h"
 #include "utils/SystemInfo.h"
