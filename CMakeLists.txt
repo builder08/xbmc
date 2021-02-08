@@ -118,7 +118,6 @@ endforeach()
 
 # Required dependencies. Keep in alphabetical order please
 set(required_deps ASS
-                  Cdio
                   CrossGUID
                   Curl
                   FFMPEG
@@ -200,6 +199,7 @@ if(ENABLE_UPNP)
 endif()
 
 if(ENABLE_OPTICAL)
+  core_require_dep(Cdio)
   list(APPEND DEP_DEFINES -DHAS_DVD_DRIVE -DHAS_CDDA_RIPPER)
 endif()
 
