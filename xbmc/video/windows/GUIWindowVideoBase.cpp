@@ -491,6 +491,7 @@ void CGUIWindowVideoBase::AddItemToPlayList(const CFileItemPtr &pItem, CFileItem
     if (!mediapath.empty())
     {
       CFileItemPtr item(new CFileItem(mediapath, false));
+      item->SetLabel(CUtil::GetTitleFromPath(pItem->GetPath(), true));
       queuedItems.Add(item);
       return;
     }
@@ -1160,6 +1161,16 @@ bool CGUIWindowVideoBase::OnPlayMedia(int iItem, const std::string &player)
   {
     item.SetPath(pItem->GetVideoInfoTag()->m_strFileNameAndPath);
     item.SetProperty("original_listitem_url", pItem->GetPath());
+  }
+  if (pItem->m_bIsFolder) {
+    // check if it's a folder with dvd or bluray files, then just add the relevant file
+    std::string mediapath(pItem->GetOpticalMediaPath());
+    if (!mediapath.empty())
+    {
+      item.m_bIsFolder = false;
+      item.SetLabel(CUtil::GetTitleFromPath(pItem->GetPath(), true));
+      item.SetPath(mediapath);
+    }
   }
   CLog::Log(LOGDEBUG, "%s %s", __FUNCTION__, CURL::GetRedacted(item.GetPath()).c_str());
 
