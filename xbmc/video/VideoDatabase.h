@@ -912,9 +912,9 @@ public:
   void SetMovieSet(int idMovie, int idSet);
   bool SetVideoUserRating(int dbId, int rating, const MediaType& mediaType);
   bool GetUseAllExternalAudioForVideo(const std::string& videoPath);
+  int AddNewMovie(CVideoInfoTag& details);
 
 protected:
-  int AddNewMovie(CVideoInfoTag& details);
   int AddNewMusicVideo(CVideoInfoTag& details);
 
   int GetMovieId(const std::string& strFilenameAndPath);
