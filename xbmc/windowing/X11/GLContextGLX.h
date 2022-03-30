@@ -9,8 +9,7 @@
 #pragma once
 
 #include "GLContext.h"
-
-#include <GL/glx.h>
+#include "RenderingGLX.hpp"
 
 namespace KODI
 {
@@ -29,6 +28,9 @@ public:
   void SetVSync(bool enable) override;
   void SwapBuffers() override;
   void QueryExtensions() override;
+
+  void* GetProcAddressGL(const char* name) override;
+
   GLXWindow m_glxWindow;
   GLXContext m_glxContext;
 protected:

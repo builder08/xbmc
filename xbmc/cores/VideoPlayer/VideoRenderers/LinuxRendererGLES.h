@@ -8,18 +8,18 @@
 
 #pragma once
 
-#include <vector>
-
-#include "system_gl.h"
-
 #include "BaseRenderer.h"
-#include "cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h"
-#include "cores/VideoSettings.h"
 #include "FrameBufferObject.h"
-#include "guilib/Shader.h"
 #include "RenderFlags.h"
 #include "RenderInfo.h"
+#include "RendererGLCommon.h"
+#include "RenderingGL.hpp"
+#include "cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h"
+#include "cores/VideoSettings.h"
+#include "guilib/Shader.h"
 #include "windowing/GraphicContext.h"
+
+#include <vector>
 
 extern "C" {
 #include <libavutil/mastering_display_metadata.h>
@@ -37,20 +37,6 @@ class BaseYUV2RGBGLSLShader;
 class BaseVideoFilterShader;
 }
 } // namespace Shaders
-
-enum RenderMethod
-{
-  RENDER_GLSL = 0x01,
-  RENDER_CUSTOM = 0x02,
-};
-
-enum RenderQuality
-{
-  RQ_LOW = 1,
-  RQ_SINGLEPASS,
-  RQ_MULTIPASS,
-  RQ_SOFTWARE
-};
 
 class CEvent;
 
@@ -87,10 +73,6 @@ public:
   CRenderCapture* GetRenderCapture() override;
 
 protected:
-  static const int FIELD_FULL{0};
-  static const int FIELD_TOP{1};
-  static const int FIELD_BOT{2};
-
   virtual void Render(unsigned int flags, int index);
   virtual void RenderUpdateVideo(bool clear, unsigned int flags = 0, unsigned int alpha = 255);
 

@@ -9,6 +9,7 @@
 #include "WinSystemTVOS.h"
 
 #include "ServiceBroker.h"
+#include "RenderingGL.hpp"
 #import "cores/AudioEngine/Sinks/AESinkDARWINTVOS.h"
 #include "cores/RetroPlayer/process/ios/RPProcessInfoIOS.h"
 #include "cores/RetroPlayer/rendering/VideoRenderers/RPRendererOpenGLES.h"
@@ -43,9 +44,8 @@
 #include <vector>
 
 #import <Foundation/Foundation.h>
-#import <OpenGLES/ES2/gl.h>
-#import <OpenGLES/ES2/glext.h>
 #import <QuartzCore/CADisplayLink.h>
+#import <dlfcn.h>
 
 using namespace std::chrono_literals;
 
@@ -149,6 +149,12 @@ CWinSystemTVOS::~CWinSystemTVOS()
 {
   m_pDisplayLink->callbackClass = nil;
   delete m_pDisplayLink;
+
+  if (m_glLibrary)
+  {
+    dlclose(m_glLibrary);
+    m_glLibrary = nullptr;
+  }
 }
 
 bool CWinSystemTVOS::InitWindowSystem()
@@ -179,7 +185,7 @@ bool CWinSystemTVOS::CreateNewWindow(const std::string& name, bool fullScreen, R
 
   m_eglext = " ";
 
-  const char* tmpExtensions = reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
+  const char* tmpExtensions = reinterpret_cast<const char*>(gl::GetString(GL_EXTENSIONS));
   if (tmpExtensions != nullptr)
   {
     m_eglext += tmpExtensions;
@@ -450,4 +456,19 @@ std::vector<std::string> CWinSystemTVOS::GetConnectedOutputs()
 bool CWinSystemTVOS::MessagePump()
 {
   return m_winEvents->MessagePump();
+}
+
+void* CWinSystemTVOS::GetProcAddressGL(const char* name)
+{
+  if (!m_glLibrary)
+  {
+    const char* glLibPath = "/System/Library/Frameworks/OpenGLES.framework/OpenGLES";
+
+    m_glLibrary = dlopen(glLibPath, RTLD_LAZY);
+
+    if (!m_glLibrary)
+      throw std::runtime_error("failed to load OpenGLES library: " + std::string(dlerror()));
+  }
+
+  return dlsym(m_glLibrary, name);
 }
