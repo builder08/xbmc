@@ -1671,19 +1671,16 @@ CDemuxStream* CDVDDemuxFFmpeg::AddStream(int streamIdx)
         int size = 0;
         uint8_t* side_data = nullptr;
 
-        side_data = av_stream_get_side_data(pStream, AV_PKT_DATA_DOVI_CONF, &size);
-        if (side_data && size)
-          st->hdr_type = StreamHdrType::HDR_TYPE_DOLBYVISION;
-        else if (st->colorPrimaries == AVCOL_PRI_BT2020)
+        side_data =
+            av_stream_get_side_data(pStream, AV_PKT_DATA_MASTERING_DISPLAY_METADATA, &size);
+        if (st->colorPrimaries == AVCOL_PRI_BT2020)
         {
           if (st->colorTransferCharacteristic == AVCOL_TRC_SMPTE2084) // hdr10
             st->hdr_type = StreamHdrType::HDR_TYPE_HDR10;
           else if (st->colorTransferCharacteristic == AVCOL_TRC_ARIB_STD_B67) // hlg
             st->hdr_type = StreamHdrType::HDR_TYPE_HLG;
         }
-
-        side_data = av_stream_get_side_data(pStream, AV_PKT_DATA_MASTERING_DISPLAY_METADATA, &size);
-        if (side_data && size)
+        else if (side_data && size)
         {
           st->masteringMetaData = std::make_shared<AVMasteringDisplayMetadata>(
               *reinterpret_cast<AVMasteringDisplayMetadata*>(side_data));
@@ -1692,6 +1689,27 @@ CDemuxStream* CDVDDemuxFFmpeg::AddStream(int streamIdx)
           if (st->masteringMetaData->has_primaries && st->masteringMetaData->has_luminance)
             st->hdr_type = StreamHdrType::HDR_TYPE_HDR10;
         }
+
+        if (pStream->codecpar->codec_id == AV_CODEC_ID_HEVC)
+        {
+          // TODO: Error handling
+          AVPacket pkt;
+          av_init_packet(&pkt); // <- TODO: Any non deprecated way to do this?
+          pkt.data = nullptr;
+          pkt.size = 0;
+          av_read_frame(m_pFormatContext, &pkt);
+          AVFrame* frame = av_frame_alloc();
+          AVCodecContext* coctx = pStream->codec; // <- TODO: Any non deprecated way to get this?
+          avcodec_send_packet(coctx, &pkt);
+          avcodec_receive_frame(coctx, frame);
+          AVFrameSideData* frame_side_data =
+              av_frame_get_side_data(frame, AV_FRAME_DATA_DYNAMIC_HDR_PLUS);
+          if (frame_side_data)
+            st->hdr_type = StreamHdrType::HDR_TYPE_HDR10PLUS;
+        }
+
+        if (av_stream_get_side_data(pStream, AV_PKT_DATA_DOVI_CONF, &size) && size)
+          st->hdr_type = StreamHdrType::HDR_TYPE_DOLBYVISION;
 
         side_data = av_stream_get_side_data(pStream, AV_PKT_DATA_CONTENT_LIGHT_LEVEL, &size);
         if (side_data && size)
