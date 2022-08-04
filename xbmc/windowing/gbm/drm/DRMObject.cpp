@@ -74,15 +74,18 @@ bool CDRMObject::GetProperties(uint32_t id, uint32_t type)
   m_type = type;
 
   for (uint32_t i = 0; i < m_props->count_props; i++)
+  {
     m_propsInfo.emplace_back(std::unique_ptr<drmModePropertyRes, DrmModePropertyResDeleter>(
         drmModeGetProperty(m_fd, m_props->props[i])));
+    m_propsValues.emplace_back(m_props->prop_values[i]);
+  }
 
   return true;
 }
 
 //! @todo: improve with c++17
-std::tuple<bool, uint64_t> CDRMObject::GetPropertyValue(const std::string& name,
-                                                        const std::string& valueName) const
+std::tuple<bool, uint64_t> CDRMObject::GetPropertyEnumValue(const std::string& name,
+                                                            const std::string& valueName) const
 {
   auto property = std::find_if(m_propsInfo.begin(), m_propsInfo.end(),
                                [&name](const auto& prop) { return prop->name == name; });
@@ -104,6 +107,38 @@ std::tuple<bool, uint64_t> CDRMObject::GetPropertyValue(const std::string& name,
   }
 
   return std::make_tuple(false, 0);
+}
+
+bool CDRMObject::GetPropertyValue(const std::string& name, uint64_t& val) const
+{
+  auto property = std::find_if(m_propsInfo.begin(), m_propsInfo.end(),
+                               [&name](auto& prop) { return prop->name == name; });
+
+  if (property == m_propsInfo.end())
+    return false;
+
+  val = m_propsValues[property - m_propsInfo.begin()];
+
+  return true;
+}
+
+bool CDRMObject::GetPropertyRange(const std::string& name, uint64_t& min, uint64_t& max) const
+{
+  auto property = std::find_if(m_propsInfo.begin(), m_propsInfo.end(),
+                               [&name](auto& prop) { return prop->name == name; });
+
+  if (property == m_propsInfo.end())
+    return false;
+
+  auto prop = property->get();
+
+  if (!static_cast<bool>(drm_property_type_is(prop, DRM_MODE_PROP_RANGE)))
+    return false;
+
+  min = prop->values[0];
+  max = prop->values[1];
+
+  return true;
 }
 
 bool CDRMObject::SetProperty(const std::string& name, uint64_t value)

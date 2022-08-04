@@ -35,8 +35,30 @@ void CVideoLayerBridgeDRMPRIME::Disable()
   m_DRM->AddProperty(plane, "FB_ID", 0);
   m_DRM->AddProperty(plane, "CRTC_ID", 0);
 
-  // disable HDR metadata
   auto connector = m_DRM->GetConnector();
+
+  bool result;
+
+  // reset max bpc back to default
+  if (m_previous_bpc)
+  {
+    result = m_DRM->AddProperty(connector, "max bpc", m_previous_bpc);
+    CLog::Log(LOGDEBUG, "CVideoLayerBridgeDRMPRIME::{} - setting max bpc to {} ({})", __FUNCTION__,
+              m_previous_bpc, result);
+    m_previous_bpc = 0;
+  }
+
+  uint64_t value;
+  std::tie(result, value) = connector->GetPropertyEnumValue("Colorspace", "Default");
+  if (result)
+  {
+    CLog::Log(LOGDEBUG,
+              "CVideoLayerBridgeDRMPRIME::{} - setting connector colorspace to Default ({})",
+              __FUNCTION__, result);
+    m_DRM->AddProperty(connector, "Colorspace", value);
+  }
+
+  // disable HDR metadata
   if (connector->SupportsProperty("HDR_OUTPUT_METADATA"))
   {
     m_DRM->AddProperty(connector, "HDR_OUTPUT_METADATA", 0);
@@ -165,15 +187,41 @@ void CVideoLayerBridgeDRMPRIME::Configure(CVideoBufferDRMPRIME* buffer)
 
   bool result;
   uint64_t value;
-  std::tie(result, value) = plane->GetPropertyValue("COLOR_ENCODING", GetColorEncoding(picture));
+  std::tie(result, value) =
+      plane->GetPropertyEnumValue("COLOR_ENCODING", GetColorEncoding(picture));
   if (result)
     m_DRM->AddProperty(plane, "COLOR_ENCODING", value);
 
-  std::tie(result, value) = plane->GetPropertyValue("COLOR_RANGE", GetColorRange(picture));
+  std::tie(result, value) = plane->GetPropertyEnumValue("COLOR_RANGE", GetColorRange(picture));
   if (result)
     m_DRM->AddProperty(plane, "COLOR_RANGE", value);
 
   auto connector = m_DRM->GetConnector();
+
+  // set max bpc to allow the drm driver to choose a deep colour mode
+  if (picture.colorBits > 8 && connector->SupportsProperty("max bpc"))
+  {
+    uint64_t bpc = 12;
+    uint64_t min, max;
+
+    if (connector->GetPropertyRange("max bpc", min, max) && bpc >= min && bpc <= max &&
+        connector->GetPropertyValue("max bpc", m_previous_bpc))
+    {
+
+      result = m_DRM->AddProperty(connector, "max bpc", bpc);
+      CLog::Log(LOGDEBUG, "CVideoLayerBridgeDRMPRIME::{} - setting max bpc to {} ({})",
+                __FUNCTION__, bpc, result);
+    }
+  }
+
+  std::tie(result, value) = connector->GetPropertyEnumValue("Colorspace", GetColorimetry(picture));
+  if (result)
+  {
+    result = m_DRM->AddProperty(connector, "Colorspace", value);
+    CLog::Log(LOGDEBUG, "CVideoLayerBridgeDRMPRIME::{} - setting connector colorspace to {} ({})",
+              __FUNCTION__, GetColorimetry(picture), result);
+  }
+
   if (connector->SupportsProperty("HDR_OUTPUT_METADATA"))
   {
     m_hdr_metadata.metadata_type = HDMI_STATIC_METADATA_TYPE1;
