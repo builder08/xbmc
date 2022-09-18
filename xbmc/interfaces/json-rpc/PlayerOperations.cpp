@@ -1301,10 +1301,7 @@ PlayerType CPlayerOperations::GetPlayer(const CVariant &player)
       break;
   }
 
-  if (GetPlaylist(playerID) == iPlayer)
-    return playerID;
-  else
-    return None;
+  return playerID;
 }
 
 int CPlayerOperations::GetPlaylist(PlayerType player)
@@ -1316,10 +1313,10 @@ int CPlayerOperations::GetPlaylist(PlayerType player)
   switch (player)
   {
     case Video:
-      return playlist == PLAYLIST_NONE ? PLAYLIST_VIDEO : playlist;
+      return PLAYLIST_VIDEO;
 
     case Audio:
-      return playlist == PLAYLIST_NONE ? PLAYLIST_MUSIC : playlist;
+      return PLAYLIST_MUSIC;
 
     case Picture:
       return PLAYLIST_PICTURE;
@@ -1417,7 +1414,10 @@ JSONRPC_STATUS CPlayerOperations::GetPropertyValue(PlayerType player, const std:
     {
       case Video:
       case Audio:
-        result = g_application.GetAppPlayer().IsPausedPlayback() ? 0 : (int)lrint(g_application.GetAppPlayer().GetPlaySpeed());
+        if (CServiceBroker::GetPlaylistPlayer().GetCurrentPlaylist() == playlist)
+          result = (int)lrint(g_application.GetAppPlayer().GetPlaySpeed());
+        else
+          result = 0;
         break;
 
       case Picture:
@@ -1441,7 +1441,12 @@ JSONRPC_STATUS CPlayerOperations::GetPropertyValue(PlayerType player, const std:
       {
         int ms = 0;
         if (!IsPVRChannel())
-          ms = (int)(g_application.GetTime() * 1000.0);
+        {
+          if (CServiceBroker::GetPlaylistPlayer().GetCurrentPlaylist() == playlist)
+            ms = (int)(g_application.GetTime() * 1000.0);
+          else
+            ms = 0;
+        }
         else
         {
           std::shared_ptr<CPVREpgInfoTag> epg(GetCurrentEpg());
@@ -1470,7 +1475,10 @@ JSONRPC_STATUS CPlayerOperations::GetPropertyValue(PlayerType player, const std:
       case Audio:
       {
         if (!IsPVRChannel())
-          result = g_application.GetPercentage();
+          if (CServiceBroker::GetPlaylistPlayer().GetCurrentPlaylist() == playlist)
+            result = g_application.GetPercentage();
+          else
+            result = 0.0;
         else
         {
           std::shared_ptr<CPVREpgInfoTag> epg(GetCurrentEpg());
@@ -1500,10 +1508,11 @@ JSONRPC_STATUS CPlayerOperations::GetPropertyValue(PlayerType player, const std:
     {
       case Video:
       case Audio:
-      {
-        result = g_application.GetCachePercentage();
+        if (CServiceBroker::GetPlaylistPlayer().GetCurrentPlaylist() == playlist)
+          result = g_application.GetCachePercentage();
+        else
+          result = 0.0;
         break;
-      }
 
       case Picture:
       {
@@ -1524,7 +1533,12 @@ JSONRPC_STATUS CPlayerOperations::GetPropertyValue(PlayerType player, const std:
       {
         int ms = 0;
         if (!IsPVRChannel())
-          ms = (int)(g_application.GetTotalTime() * 1000.0);
+        {
+          if (CServiceBroker::GetPlaylistPlayer().GetCurrentPlaylist() == playlist)
+            ms = (int)(g_application.GetTotalTime() * 1000.0);
+          else
+            ms = 0;
+        }
         else
         {
           std::shared_ptr<CPVREpgInfoTag> epg(GetCurrentEpg());
@@ -1580,7 +1594,7 @@ JSONRPC_STATUS CPlayerOperations::GetPropertyValue(PlayerType player, const std:
     {
       case Video:
       case Audio:
-        if (IsPVRChannel())
+        if (IsPVRChannel() || CServiceBroker::GetPlaylistPlayer().GetCurrentPlaylist() != playlist)
         {
           result = "off";
           break;
@@ -1613,7 +1627,7 @@ JSONRPC_STATUS CPlayerOperations::GetPropertyValue(PlayerType player, const std:
     {
       case Video:
       case Audio:
-        if (IsPVRChannel())
+        if (IsPVRChannel() || CServiceBroker::GetPlaylistPlayer().GetCurrentPlaylist() != playlist)
         {
           result = false;
           break;
@@ -1641,7 +1655,10 @@ JSONRPC_STATUS CPlayerOperations::GetPropertyValue(PlayerType player, const std:
     {
       case Video:
       case Audio:
-        result = g_application.GetAppPlayer().CanSeek();
+        if (CServiceBroker::GetPlaylistPlayer().GetCurrentPlaylist() == playlist)
+          result = g_application.GetAppPlayer().CanSeek();
+        else
+          result = false;
         break;
 
       case Picture:
@@ -1656,7 +1673,10 @@ JSONRPC_STATUS CPlayerOperations::GetPropertyValue(PlayerType player, const std:
     {
       case Video:
       case Audio:
-        result = !IsPVRChannel();
+        if (CServiceBroker::GetPlaylistPlayer().GetCurrentPlaylist() == playlist)
+          result = !IsPVRChannel();
+        else
+          result = false;
         break;
 
       case Picture:
@@ -1717,7 +1737,10 @@ JSONRPC_STATUS CPlayerOperations::GetPropertyValue(PlayerType player, const std:
       case Video:
       case Audio:
       case Picture:
-        result = !IsPVRChannel();
+        if (CServiceBroker::GetPlaylistPlayer().GetCurrentPlaylist() == playlist)
+          result = !IsPVRChannel();
+        else
+          result = false;
         break;
 
       default:
@@ -1731,7 +1754,10 @@ JSONRPC_STATUS CPlayerOperations::GetPropertyValue(PlayerType player, const std:
     {
       case Video:
       case Audio:
-        result = !IsPVRChannel();
+        if (CServiceBroker::GetPlaylistPlayer().GetCurrentPlaylist() == playlist)
+          result = !IsPVRChannel();
+        else
+          result = false;
         break;
 
       case Picture:
@@ -1746,7 +1772,7 @@ JSONRPC_STATUS CPlayerOperations::GetPropertyValue(PlayerType player, const std:
     {
       case Video:
       case Audio:
-        if (g_application.GetAppPlayer().HasPlayer())
+        if (CServiceBroker::GetPlaylistPlayer().GetCurrentPlaylist() == playlist && g_application.GetAppPlayer().HasPlayer())
         {
           result = CVariant(CVariant::VariantTypeObject);
           int index = g_application.GetAppPlayer().GetAudioStream();
@@ -1782,7 +1808,7 @@ JSONRPC_STATUS CPlayerOperations::GetPropertyValue(PlayerType player, const std:
     {
       case Video:
       case Audio:
-        if (g_application.GetAppPlayer().HasPlayer())
+        if (CServiceBroker::GetPlaylistPlayer().GetCurrentPlaylist() == playlist && g_application.GetAppPlayer().HasPlayer())
         {
           for (int index = 0; index < g_application.GetAppPlayer().GetAudioStreamCount(); index++)
           {
@@ -1815,19 +1841,22 @@ JSONRPC_STATUS CPlayerOperations::GetPropertyValue(PlayerType player, const std:
     {
     case Video:
     {
-      int index = g_application.GetAppPlayer().GetVideoStream();
-      if (index >= 0)
+      if (g_application.GetAppPlayer().HasVideo())
       {
         result = CVariant(CVariant::VariantTypeObject);
-        VideoStreamInfo info;
-        g_application.GetAppPlayer().GetVideoStreamInfo(index, info);
+        int index = g_application.GetAppPlayer().GetVideoStream();
+        if (index >= 0)
+        {
+          VideoStreamInfo info;
+          g_application.GetAppPlayer().GetVideoStreamInfo(index, info);
 
-        result["index"] = index;
-        result["name"] = info.name;
-        result["language"] = info.language;
-        result["codec"] = info.codecName;
-        result["width"] = info.width;
-        result["height"] = info.height;
+          result["index"] = index;
+          result["name"] = info.name;
+          result["language"] = info.language;
+          result["codec"] = info.codecName;
+          result["width"] = info.width;
+          result["height"] = info.height;
+        }
       }
       else
         result = CVariant(CVariant::VariantTypeNull);
@@ -1894,7 +1923,7 @@ JSONRPC_STATUS CPlayerOperations::GetPropertyValue(PlayerType player, const std:
     switch (player)
     {
       case Video:
-        if (g_application.GetAppPlayer().HasPlayer())
+        if (g_application.GetAppPlayer().HasVideo())
         {
           result = CVariant(CVariant::VariantTypeObject);
           int index = g_application.GetAppPlayer().GetSubtitle();
@@ -1926,7 +1955,7 @@ JSONRPC_STATUS CPlayerOperations::GetPropertyValue(PlayerType player, const std:
     switch (player)
     {
       case Video:
-        if (g_application.GetAppPlayer().HasPlayer())
+        if (g_application.GetAppPlayer().HasVideo())
         {
           for (int index = 0; index < g_application.GetAppPlayer().GetSubtitleCount(); index++)
           {
@@ -1951,7 +1980,10 @@ JSONRPC_STATUS CPlayerOperations::GetPropertyValue(PlayerType player, const std:
     }
   }
   else if (property == "live")
-    result = IsPVRChannel();
+    if (CServiceBroker::GetPlaylistPlayer().GetCurrentPlaylist() == playlist)
+      result = IsPVRChannel();
+    else
+      result = false;
   else
     return InvalidParams;
 
