@@ -8,11 +8,15 @@
 
 #include "Cheevos.h"
 
+#include "FileItem.h"
+#include "ServiceBroker.h"
 #include "URL.h"
 #include "filesystem/CurlFile.h"
 #include "filesystem/File.h"
 #include "games/addons/GameClient.h"
 #include "games/addons/cheevos/GameClientCheevos.h"
+#include "games/tags/GameInfoTag.h"
+#include "messaging/ApplicationMessenger.h"
 #include "utils/JSONVariantParser.h"
 #include "utils/URIUtils.h"
 #include "utils/Variant.h"
@@ -25,18 +29,24 @@ using namespace RETRO;
 namespace
 {
 // API JSON Field names
-constexpr auto SUCCESS = "Success";
-constexpr auto GAME_ID = "GameID";
-constexpr auto PATCH_DATA = "PatchData";
-constexpr auto RICH_PRESENCE = "RichPresencePatch";
+constexpr std::string_view SUCCESS = "Success";
+constexpr std::string_view PATCH_DATA = "PatchData";
+constexpr std::string_view GAME_ID = "GameID";
+constexpr std::string_view RICH_PRESENCE = "RichPresencePatch";
+constexpr std::string_view GAME_TITLE = "Title";
+constexpr std::string_view PUBLISHER = "Publisher";
+constexpr std::string_view DEVELOPER = "Developer";
+constexpr std::string_view GENRE = "Genre";
+constexpr std::string_view CONSOLE_NAME = "ConsoleName";
 
 constexpr int RESPORNSE_SIZE = 64;
 } // namespace
 
 CCheevos::CCheevos(GAME::CGameClient* gameClient,
+                   CFileItem& fileItem,
                    const std::string& userName,
                    const std::string& loginToken)
-  : m_gameClient(gameClient), m_userName(userName), m_loginToken(loginToken)
+  : m_gameClient(gameClient), m_fileItem(fileItem), m_userName(userName), m_loginToken(loginToken)
 {
 }
 
@@ -108,6 +118,14 @@ bool CCheevos::LoadData()
   m_richPresenceScript = data[PATCH_DATA][RICH_PRESENCE].asString();
   m_richPresenceLoaded = true;
 
+  GAME::CGameInfoTag& tag = *m_fileItem.GetGameInfoTag();
+
+  tag.SetTitle(data[PATCH_DATA][GAME_TITLE].asString());
+  tag.SetPublisher(data[PATCH_DATA][PUBLISHER].asString());
+  tag.SetDeveloper(data[PATCH_DATA][DEVELOPER].asString());
+  tag.SetGenres({data[PATCH_DATA][GENRE].asString()});
+  tag.SetPlatform(data[PATCH_DATA][CONSOLE_NAME].asString());
+
   return true;
 }
 
@@ -136,6 +154,14 @@ std::string CCheevos::GetRichPresenceEvaluation()
 
   std::string evaluation;
   m_gameClient->Cheevos().RCGetRichPresenceEvaluation(evaluation, m_consoleID);
+
+  GAME::CGameInfoTag& tag = *m_fileItem.GetGameInfoTag();
+
+  tag.SetCaption(evaluation);
+
+  CFileItem* file = new CFileItem(m_fileItem);
+  CServiceBroker::GetAppMessenger()->PostMsg(TMSG_SET_PLAYER_ITEM, -1, -1,
+                                             static_cast<void*>(file));
 
   std::string url;
   std::string postData;
