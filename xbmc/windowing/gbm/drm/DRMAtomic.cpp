@@ -125,10 +125,10 @@ void CDRMAtomic::DrmAtomicCommit(int fb_id, int flags, bool rendered, bool video
   auto ret = drmModeAtomicCommit(m_fd, m_req->Get(), flags | DRM_MODE_ATOMIC_TEST_ONLY, nullptr);
   if (ret < 0)
   {
-    CLog::Log(LOGERROR,
-              "CDRMAtomic::{} - test commit failed: ({}) - falling back to last successful atomic "
-              "request",
-              __FUNCTION__, strerror(errno));
+    CLog::LogF(LOGERROR,
+               "CDRMAtomic: test commit failed: ({}) - falling back to last successful atomic "
+               "request",
+               strerror(errno));
 
     auto oldRequest = m_atomicRequestQueue.front().get();
     CDRMAtomicRequest::LogAtomicDiff(m_req, oldRequest);
@@ -142,15 +142,13 @@ void CDRMAtomic::DrmAtomicCommit(int fb_id, int flags, bool rendered, bool video
   ret = drmModeAtomicCommit(m_fd, m_req->Get(), flags, nullptr);
   if (ret < 0)
   {
-    CLog::Log(LOGERROR, "CDRMAtomic::{} - atomic commit failed: {}", __FUNCTION__,
-              strerror(errno));
+    CLog::LogF(LOGERROR, "CDRMAtomic: atomic commit failed: {}", strerror(errno));
   }
 
   if (flags & DRM_MODE_ATOMIC_ALLOW_MODESET)
   {
     if (drmModeDestroyPropertyBlob(m_fd, blob_id) != 0)
-      CLog::Log(LOGERROR, "CDRMAtomic::{} - failed to destroy property blob: {}", __FUNCTION__,
-                strerror(errno));
+      CLog::LogF(LOGERROR, "CDRMAtomic: failed to destroy property blob: {}", strerror(errno));
   }
 
   if (m_atomicRequestQueue.size() > 1)
@@ -174,7 +172,7 @@ void CDRMAtomic::FlipPage(struct gbm_bo *bo, bool rendered, bool videoLayer)
     drm_fb = CDRMUtils::DrmFbGetFromBo(bo);
     if (!drm_fb)
     {
-      CLog::Log(LOGERROR, "CDRMAtomic::{} - Failed to get a new FBO", __FUNCTION__);
+      CLog::LogF(LOGERROR, "CDRMAtomic: Failed to get a new FBO");
       return;
     }
   }
@@ -185,7 +183,7 @@ void CDRMAtomic::FlipPage(struct gbm_bo *bo, bool rendered, bool videoLayer)
   {
     flags |= DRM_MODE_ATOMIC_ALLOW_MODESET;
     m_need_modeset = false;
-    CLog::Log(LOGDEBUG, "CDRMAtomic::{} - Execute modeset at next commit", __FUNCTION__);
+    CLog::LogF(LOGDEBUG, "CDRMAtomic: Execute modeset at next commit");
   }
 
   DrmAtomicCommit(!drm_fb ? 0 : drm_fb->fb_id, flags, rendered, videoLayer);
@@ -199,8 +197,7 @@ bool CDRMAtomic::InitDrm()
   auto ret = drmSetClientCap(m_fd, DRM_CLIENT_CAP_ATOMIC, 1);
   if (ret)
   {
-    CLog::Log(LOGERROR, "CDRMAtomic::{} - no atomic modesetting support: {}", __FUNCTION__,
-              strerror(errno));
+    CLog::LogF(LOGERROR, "CDRMAtomic: no atomic modesetting support: {}", strerror(errno));
     return false;
   }
 
@@ -216,7 +213,7 @@ bool CDRMAtomic::InitDrm()
     AddProperty(plane.get(), "CRTC_ID", 0);
   }
 
-  CLog::Log(LOGDEBUG, "CDRMAtomic::{} - initialized atomic DRM", __FUNCTION__);
+  CLog::LogF(LOGDEBUG, "CDRMAtomic: initialized atomic DRM");
 
   //! @todo: disabled until upstream kernel changes are merged
   // if (m_gui_plane->SupportsProperty("SCALING_FILTER"))
@@ -308,14 +305,14 @@ void CDRMAtomic::CDRMAtomicRequest::LogAtomicDiff(CDRMAtomicRequest* current,
     }
   }
 
-  CLog::Log(LOGDEBUG, "CDRMAtomicRequest::{} - DRM Atomic Request Diff:", __FUNCTION__);
+  CLog::LogF(LOGDEBUG, "CDRMAtomicRequest: DRM Atomic Request Diff:");
 
   LogAtomicRequest(LOGERROR, atomicDiff);
 }
 
 void CDRMAtomic::CDRMAtomicRequest::LogAtomicRequest()
 {
-  CLog::Log(LOGDEBUG, "CDRMAtomicRequest::{} - DRM Atomic Request:", __FUNCTION__);
+  CLog::LogF(LOGDEBUG, "CDRMAtomicRequest: DRM Atomic Request:");
   LogAtomicRequest(LOGDEBUG, m_atomicRequestItems);
 }
 
