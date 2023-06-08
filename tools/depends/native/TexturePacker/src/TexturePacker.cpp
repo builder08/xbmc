@@ -27,29 +27,28 @@
 #include <inttypes.h>
 #define platform_stricmp strcasecmp
 #endif
-#include <cerrno>
-#include <dirent.h>
-#include <map>
-
+#include "DecoderManager.h"
+#include "XBTFWriter.h"
+#include "cmdlineargs.h"
 #include "guilib/XBTF.h"
 #include "guilib/XBTFReader.h"
-
-#include "DecoderManager.h"
-
-#include "XBTFWriter.h"
 #include "md5.h"
-#include "cmdlineargs.h"
+
+#include <cerrno>
+#include <map>
+
+#include <dirent.h>
+#include <zstd.h>
 
 #ifdef TARGET_WINDOWS
 #define strncasecmp _strnicmp
 #endif
 
+#include <chrono>
 #include <vector>
 
 #include <lzo/lzo1x.h>
 #include <sys/stat.h>
-
-#define FLAGS_USE_LZO     1
 
 #define DIR_SEPARATOR '/'
 
@@ -91,10 +90,11 @@ bool HasAlpha(unsigned char* argb, unsigned int width, unsigned int height)
 void Usage()
 {
   puts("Usage:");
-  puts("  -help            Show this screen.");
-  puts("  -input <dir>     Input directory. Default: current dir");
-  puts("  -output <dir>    Output directory/filename. Default: Textures.xbt");
-  puts("  -dupecheck       Enable duplicate file detection. Reduces output file size. Default: off");
+  puts("  -help               Show this screen.");
+  puts("  -input <dir>        Input directory. Default: current dir");
+  puts("  -output <dir>       Output directory/filename. Default: Textures.xbt");
+  puts("  -dupecheck          Enable duplicate file detection. Reduces output file size. Default: off");
+  puts("  -compression-method Compression method to use. [lzo|none] Default: lzo");
 }
 
 } // namespace
@@ -111,7 +111,10 @@ public:
 
   int createBundle(const std::string& InputDir, const std::string& OutputFile);
 
-  void SetFlags(unsigned int flags) { m_flags = flags; }
+  void SetCompressionMethod(XBTFCompressionMethod compressionMethod)
+  {
+    m_compressionMethod = compressionMethod;
+  }
 
 private:
   void CreateSkeletonHeader(CXBTFWriter& xbtfWriter,
@@ -128,7 +131,7 @@ private:
   std::vector<unsigned int> m_dupes;
 
   bool m_dupecheck{false};
-  unsigned int m_flags{0};
+  XBTFCompressionMethod m_compressionMethod = XBTFCompressionMethod::NONE;
 };
 
 void TexturePacker::CreateSkeletonHeader(CXBTFWriter& xbtfWriter,
@@ -203,9 +206,9 @@ CXBTFFrame TexturePacker::CreateXBTFFrame(DecodedFrame& decodedFrame, CXBTFWrite
   const bool hasAlpha = HasAlpha(data, width, height);
 
   CXBTFFrame frame;
-  lzo_uint packedSize = size;
+  uint64_t packedSize = size;
 
-  if ((m_flags & FLAGS_USE_LZO) == FLAGS_USE_LZO)
+  if (m_compressionMethod == XBTFCompressionMethod::LZO)
   {
     // grab a temporary buffer for unpacking into
     packedSize = size + size / 16 + 64 + 3; // see simple.c in lzo
@@ -222,6 +225,8 @@ CXBTFFrame TexturePacker::CreateXBTFFrame(DecodedFrame& decodedFrame, CXBTFWrite
       // compression failed, or compressed size is bigger than uncompressed, so store as uncompressed
       packedSize = size;
       writer.AppendContent(data, size);
+
+      frame.SetCompressionMethod(XBTFCompressionMethod::NONE);
     }
     else
     { // success
@@ -231,16 +236,47 @@ CXBTFFrame TexturePacker::CreateXBTFFrame(DecodedFrame& decodedFrame, CXBTFWrite
       { //optimisation failed
         packedSize = size;
         writer.AppendContent(data, size);
+
+        frame.SetCompressionMethod(XBTFCompressionMethod::NONE);
       }
       else
       { // success
         writer.AppendContent(packed.data(), packedSize);
+
+        frame.SetCompressionMethod(XBTFCompressionMethod::LZO);
       }
+    }
+  }
+  else if (m_compressionMethod == XBTFCompressionMethod::ZSTD)
+  {
+    packedSize = ZSTD_compressBound(size);
+
+    std::vector<uint8_t> packed(packedSize);
+
+    packedSize = ZSTD_compress(packed.data(), packed.size(), data, size, ZSTD_CLEVEL_DEFAULT);
+
+    if (ZSTD_isError(packedSize) == 1)
+    {
+      fprintf(stderr, "ztd error: %s\n", ZSTD_getErrorName(packedSize));
+
+      packedSize = size;
+      writer.AppendContent(data, size);
+
+      frame.SetCompressionMethod(XBTFCompressionMethod::NONE);
+    }
+    else
+    {
+      packed.resize(packedSize);
+      writer.AppendContent(packed.data(), packed.size());
+
+      frame.SetCompressionMethod(XBTFCompressionMethod::ZSTD);
     }
   }
   else
   {
     writer.AppendContent(data, size);
+
+    frame.SetCompressionMethod(XBTFCompressionMethod::NONE);
   }
   frame.SetPackedSize(packedSize);
   frame.SetUnpackedSize(size);
@@ -291,6 +327,8 @@ int TexturePacker::createBundle(const std::string& InputDir, const std::string& 
   std::vector<CXBTFFile> files = writer.GetFiles();
   m_dupes.resize(files.size());
 
+  const auto start = std::chrono::steady_clock::now();
+
   for (size_t i = 0; i < files.size(); i++)
   {
     struct MD5Context ctx;
@@ -340,16 +378,26 @@ int TexturePacker::createBundle(const std::string& InputDir, const std::string& 
         CXBTFFrame frame = CreateXBTFFrame(frames.frameList[j], writer);
         file.GetFrames().push_back(frame);
         printf("    frame %4i (delay:%4i)                         %s%c (%d,%d @ %" PRIu64
-               " bytes)\n",
+               " -> %" PRIu64 " bytes, compression: %s)\n",
                j, frame.GetDuration(), GetFormatString(frame.GetFormat()),
                frame.HasAlpha() ? ' ' : '*', frame.GetWidth(), frame.GetHeight(),
-               frame.GetUnpackedSize());
+               frame.GetUnpackedSize(), frame.GetPackedSize(),
+               XBTFCompressionMethodMap.at(frame.GetCompressionMethod()).data());
       }
     }
     file.SetLoop(0);
 
     writer.UpdateFile(file);
   }
+
+  const auto end = std::chrono::steady_clock::now();
+
+  const auto diff =
+      std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(end - start);
+
+  printf(
+      "TexturePacker: processed %lu files in %.3f ms using %s\n", files.size(), diff.count(),
+      XBTFCompressionMethodMap.at(files.front().GetFrames().front().GetCompressionMethod()).data());
 
   if (!writer.UpdateHeader(m_dupes))
   {
@@ -385,7 +433,7 @@ int main(int argc, char* argv[])
 
   TexturePacker texturePacker;
 
-  texturePacker.SetFlags(FLAGS_USE_LZO);
+  texturePacker.SetCompressionMethod(XBTFCompressionMethod::LZO);
 
   for (unsigned int i = 1; i < args.size(); ++i)
   {
@@ -406,6 +454,25 @@ int main(int argc, char* argv[])
     else if (!strcmp(args[i], "-verbose"))
     {
       texturePacker.EnableVerboseOutput();
+    }
+    else if (!strcmp(args[i], "-compression-method"))
+    {
+      std::string compressionMethod = args[++i];
+
+      if (compressionMethod == "lzo")
+      {
+        texturePacker.SetCompressionMethod(XBTFCompressionMethod::LZO);
+      }
+
+      if (compressionMethod == "zstd")
+      {
+        texturePacker.SetCompressionMethod(XBTFCompressionMethod::ZSTD);
+      }
+
+      if (compressionMethod == "none")
+      {
+        texturePacker.SetCompressionMethod(XBTFCompressionMethod::NONE);
+      }
     }
     else if (!platform_stricmp(args[i], "-output") || !platform_stricmp(args[i], "-o"))
     {

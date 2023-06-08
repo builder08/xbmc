@@ -8,17 +8,31 @@
 
 #pragma once
 
+#include "utils/Map.h"
+
 #include <ctime>
 #include <map>
+#include <stdint.h>
 #include <string>
 #include <vector>
 
-#include <stdint.h>
-
 static const std::string XBTF_MAGIC = "XBTF";
-static const std::string XBTF_VERSION = "2";
+static const std::string XBTF_VERSION = "3";
 
 #include "TextureFormats.h"
+
+enum class XBTFCompressionMethod : uint32_t
+{
+  NONE,
+  LZO,
+  ZSTD,
+};
+
+constexpr auto XBTFCompressionMethodMap = make_map<XBTFCompressionMethod, std::string_view>({
+    {XBTFCompressionMethod::NONE, "none"},
+    {XBTFCompressionMethod::LZO, "lzo"},
+    {XBTFCompressionMethod::ZSTD, "zstd"},
+});
 
 class CXBTFFrame
 {
@@ -48,7 +62,9 @@ public:
   uint32_t GetDuration() const;
   void SetDuration(uint32_t duration);
 
-  bool IsPacked() const;
+  XBTFCompressionMethod GetCompressionMethod() const;
+  void SetCompressionMethod(XBTFCompressionMethod compressionMethod);
+
   bool HasAlpha() const;
 
 private:
@@ -59,6 +75,7 @@ private:
   uint64_t m_unpackedSize;
   uint64_t m_offset;
   uint32_t m_duration;
+  XBTFCompressionMethod m_compressionMethod = XBTFCompressionMethod::NONE;
 };
 
 class CXBTFFile

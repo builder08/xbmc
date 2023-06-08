@@ -36,6 +36,8 @@ if(NOT VERBOSE)
   set(CMAKE_REQUIRED_QUIET ON)
 endif()
 
+set(TEXTUREPACKER_COMPRESSION_METHOD "zstd" CACHE STRING "TexturePacker compression method [none|lzo|zstd]")
+
 # Includes
 include(cmake/modules/extra/ECMEnableSanitizers.cmake)
 include(cmake/scripts/common/GeneratorSetup.cmake)
@@ -189,6 +191,7 @@ set(required_deps ASS
                   TagLib
                   TinyXML
                   ZLIB
+                  ZSTD
                   ${PLATFORM_REQUIRED_DEPS})
 
 # Optional dependencies. Keep in alphabetical order please

@@ -30,7 +30,8 @@ NATIVE= \
   python3 \
   swig \
   TexturePacker \
-  zlib
+  zlib \
+  zstd
 
 ifneq ($(NATIVE_OS),osx)
   NATIVE += libffi
@@ -80,7 +81,7 @@ pugixml: cmake
 python3: $(EXPAT) $(LIBFFI) pkg-config zlib openssl autoconf-archive
 swig: pcre
 tar: xz automake
-TexturePacker: automake pkg-config libpng liblzo2 giflib libjpeg-turbo
+TexturePacker: automake pkg-config libpng liblzo2 giflib libjpeg-turbo zstd
 wayland-scanner: expat pkg-config
 waylandpp-scanner: cmake pugixml
 
