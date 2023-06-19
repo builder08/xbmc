@@ -10,11 +10,13 @@ NATIVE= \
   autoconf-archive \
   automake \
   cmake \
+  dav1d \
   gas-preprocessor \
   gettext \
   giflib \
   heimdal \
   JsonSchemaBuilder \
+  libheif \
   libjpeg-turbo \
   liblzo2 \
   libpng \
@@ -66,9 +68,11 @@ download: $(DOWNLOAD_TARGETS)
 autoconf-archive: autoconf
 autoconf: m4
 automake: autoconf
+dav1d: ninja
 dpkg: automake gettext libtool pkg-config tar
 heimdal: libtool
 JsonSchemaBuilder: automake
+libheif: dav1d
 libjpeg-turbo: cmake nasm
 libpng: zlib automake
 libtool: automake
@@ -80,7 +84,7 @@ pugixml: cmake
 python3: $(EXPAT) $(LIBFFI) pkg-config zlib openssl autoconf-archive
 swig: pcre
 tar: xz automake
-TexturePacker: automake pkg-config libpng liblzo2 giflib libjpeg-turbo
+TexturePacker: automake pkg-config libpng liblzo2 giflib libjpeg-turbo libheif
 wayland-scanner: expat pkg-config
 waylandpp-scanner: cmake pugixml
 
