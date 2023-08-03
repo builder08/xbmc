@@ -152,11 +152,6 @@
 #include "win32util.h"
 #endif
 
-#ifdef TARGET_DARWIN_OSX
-#ifdef HAS_XBMCHELPER
-#include "platform/darwin/osx/XBMCHelper.h"
-#endif
-#endif
 #ifdef TARGET_DARWIN
 #include "platform/darwin/DarwinUtils.h"
 #endif
@@ -2161,11 +2156,6 @@ bool CApplication::Stop(int exitCode)
 
 #if defined(TARGET_POSIX) && defined(HAS_FILESYSTEM_SMB)
     smb.Deinit();
-#endif
-
-#if defined(TARGET_DARWIN_OSX) and defined(HAS_XBMCHELPER)
-    if (XBMCHelper::GetInstance().IsAlwaysOn() == false)
-      XBMCHelper::GetInstance().Stop();
 #endif
 
     // Stop services before unloading Python
