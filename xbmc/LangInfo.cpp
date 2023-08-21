@@ -161,8 +161,7 @@ static std::string ToSettingTimeFormat(const CDateTime& time, const std::string&
 
 static CTemperature::Unit StringToTemperatureUnit(const std::string& temperatureUnit)
 {
-  std::string unit(temperatureUnit);
-  StringUtils::ToLower(unit);
+  std::string unit = StringUtils::FoldCase(temperatureUnit);
 
   for (const TemperatureInfo& info : temperatureInfo)
   {
@@ -175,8 +174,7 @@ static CTemperature::Unit StringToTemperatureUnit(const std::string& temperature
 
 static CSpeed::Unit StringToSpeedUnit(const std::string& speedUnit)
 {
-  std::string unit(speedUnit);
-  StringUtils::ToLower(unit);
+  std::string unit = StringUtils::FoldCase(speedUnit);
 
   for (const SpeedInfo& info : speedInfo)
   {
@@ -191,12 +189,7 @@ struct SortLanguage
 {
   bool operator()(const StringSettingOption &left, const StringSettingOption &right) const
   {
-    std::string strLeft = left.label;
-    std::string strRight = right.label;
-    StringUtils::ToLower(strLeft);
-    StringUtils::ToLower(strRight);
-
-    return strLeft.compare(strRight) < 0;
+    return StringUtils::CompareNoCase(left.label, right.label) < 0;
   }
 };
 

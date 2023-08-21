@@ -101,8 +101,7 @@ void CGUIWindowDebugInfo::Process(unsigned int currentTime, CDirtyRegionList &di
       strCores = CServiceBroker::GetCPUInfo()->GetCoresUsageString();
     else
       strCores = "N/A";
-    std::string lcAppName = CCompileInfo::GetAppName();
-    StringUtils::ToLower(lcAppName);
+    std::string lcAppName = StringUtils::FoldCase(CCompileInfo::GetAppName());
 #if !defined(TARGET_POSIX)
     info = StringUtils::Format("LOG: {}{}.log\nMEM: {}/{} KB - FPS: {:2.1f} fps\nCPU: {}{}",
                                CSpecialProtocol::TranslatePath("special://logpath"), lcAppName,
@@ -116,7 +115,7 @@ void CGUIWindowDebugInfo::Process(unsigned int currentTime, CDirtyRegionList &di
 #else
     double dCPU = m_resourceCounter.GetCPUUsage();
     std::string ucAppName = lcAppName;
-    StringUtils::ToUpper(ucAppName);
+    ucAppName = StringUtils::ToUpper(ucAppName, StringUtils::GetCLocale());
     info = StringUtils::Format("LOG: {}{}.log\n"
                                "MEM: {}/{} KB - FPS: {:2.1f} fps\n"
                                "CPU: {} (CPU-{} {:4.2f}%{})",
