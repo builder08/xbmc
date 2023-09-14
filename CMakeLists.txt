@@ -178,7 +178,7 @@ set(required_deps ASS
                   Curl
                   FFMPEG
                   FlatBuffers
-                  Fmt
+                  Fmt>=7.0.0
                   FreeType
                   FriBidi
                   Fstrcmp
