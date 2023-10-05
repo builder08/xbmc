@@ -24,11 +24,8 @@
 #if defined(TARGET_POSIX)
 #include "platform/posix/PosixTimezone.h"
 #endif // defined(TARGET_POSIX)
-#include "network/upnp/UPnPSettings.h"
 #include "network/WakeOnAccess.h"
-#if defined(TARGET_DARWIN_OSX) and defined(HAS_XBMCHELPER)
-#include "platform/darwin/osx/XBMCHelper.h"
-#endif // defined(TARGET_DARWIN_OSX)
+#include "network/upnp/UPnPSettings.h"
 #if defined(TARGET_DARWIN_TVOS)
 #include "platform/darwin/tvos/TVOSSettingsHandler.h"
 #endif // defined(TARGET_DARWIN_TVOS)
@@ -619,13 +616,6 @@ void CSettings::InitializeISettingCallbacks()
   GetSettingsManager()->RegisterCallback(&g_timezone, settingSet);
 #endif
 
-#if defined(TARGET_DARWIN_OSX) and defined(HAS_XBMCHELPER)
-  settingSet.clear();
-  settingSet.insert(CSettings::SETTING_INPUT_APPLEREMOTEMODE);
-  settingSet.insert(CSettings::SETTING_INPUT_APPLEREMOTEALWAYSON);
-  GetSettingsManager()->RegisterCallback(&XBMCHelper::GetInstance(), settingSet);
-#endif
-
 #if defined(TARGET_DARWIN_TVOS)
   settingSet.clear();
   settingSet.insert(CSettings::SETTING_INPUT_SIRIREMOTEIDLETIMERENABLED);
@@ -664,9 +654,6 @@ void CSettings::UninitializeISettingCallbacks()
 #if defined(TARGET_LINUX)
   GetSettingsManager()->UnregisterCallback(&g_timezone);
 #endif // defined(TARGET_LINUX)
-#if defined(TARGET_DARWIN_OSX) and defined(HAS_XBMCHELPER)
-  GetSettingsManager()->UnregisterCallback(&XBMCHelper::GetInstance());
-#endif
   GetSettingsManager()->UnregisterCallback(&CWakeOnAccess::GetInstance());
 #ifdef HAVE_LIBBLURAY
   GetSettingsManager()->UnregisterCallback(&CDiscSettings::GetInstance());

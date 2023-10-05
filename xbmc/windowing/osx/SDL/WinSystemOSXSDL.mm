@@ -41,7 +41,6 @@
 #include "platform/darwin/DictionaryUtils.h"
 #include "platform/darwin/osx/CocoaInterface.h"
 #import "platform/darwin/osx/SDL/OSXTextInputResponder.h"
-#include "platform/darwin/osx/XBMCHelper.h"
 
 #include <cstdlib>
 #include <mutex>

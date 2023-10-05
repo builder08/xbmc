@@ -296,15 +296,11 @@ cmake_install.cmake
 /tools/darwin/packaging/osx/mkdmg-osx.sh
 /tools/darwin/packaging/osx/VolumeIcon.icns
 /tools/darwin/packaging/seatbeltunlock/mkdeb-seatbeltunlock.sh
-/tools/darwin/runtime/XBMCHelper
 
 # /tools/Linux/
 /tools/Linux/kodi.sh
 /tools/Linux/kodi-standalone.sh
 /tools/Linux/kodi-xsession.desktop
-
-# /tools/osx
-/tools/osx/XBMCHelper
 
 # /tools/TexturePacker
 /tools/TexturePacker/TexturePacker*

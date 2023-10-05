@@ -10,9 +10,4 @@ set(HEADERS CocoaInterface.h
             HotKeyController.h
             PlatformDarwinOSX.h)
 
-if(ENABLE_XBMCHELPER)
-  list(APPEND SOURCES XBMCHelper.cpp)
-  list(APPEND HEADERS XBMCHelper.h)
-endif()
-
 core_add_library(platform_osx)
