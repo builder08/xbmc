@@ -54,9 +54,11 @@ std::string GetOriginalPluginPath(const CFileItem& item)
 }
 } // unnamed namespace
 
-CPluginDirectory::CPluginDirectory()
-  : m_listItems(new CFileItemList), m_fileResult(new CFileItem), m_cancelled(false)
-
+CPluginDirectory::CPluginDirectory(const std::string& addonTypeStr)
+  : m_listItems(new CFileItemList),
+    m_fileResult(new CFileItem),
+    m_cancelled(false),
+    m_addonType(CAddonType(addonTypeStr).Type())
 {
 }
 
@@ -67,13 +69,20 @@ CPluginDirectory::~CPluginDirectory(void)
 bool CPluginDirectory::StartScript(const std::string& strPath, bool resume)
 {
   CURL url(strPath);
-
   ADDON::AddonPtr addon;
-  // try the plugin type first, and if not found, try an unknown type
-  if (!CServiceBroker::GetAddonMgr().GetAddon(url.GetHostName(), addon, AddonType::PLUGIN,
+
+  AddonType tryType = m_addonType;
+  if (m_addonType == AddonType::UNKNOWN)
+  {
+    // try the plugin type first, and if not found, try an unknown type
+    tryType = AddonType::PLUGIN;
+  }
+
+  if (!CServiceBroker::GetAddonMgr().GetAddon(url.GetHostName(), addon, tryType,
                                               OnlyEnabled::CHOICE_YES) &&
-      !CServiceBroker::GetAddonMgr().GetAddon(url.GetHostName(), addon, AddonType::UNKNOWN,
-                                              OnlyEnabled::CHOICE_YES) &&
+      (m_addonType == AddonType::UNKNOWN &&
+       !CServiceBroker::GetAddonMgr().GetAddon(url.GetHostName(), addon, AddonType::UNKNOWN,
+                                               OnlyEnabled::CHOICE_YES)) &&
       !CAddonInstaller::GetInstance().InstallModal(url.GetHostName(), addon,
                                                    InstallModalPrompt::CHOICE_YES))
   {
@@ -94,7 +103,7 @@ bool CPluginDirectory::StartScript(const std::string& strPath, bool resume)
   return RunScript(this, addon, strPath, resume);
 }
 
-bool CPluginDirectory::GetResolvedPluginResult(CFileItem& resultItem)
+bool CPluginDirectory::GetResolvedPluginResult(CFileItem& resultItem, ADDON::AddonType addonType)
 {
   std::string lastResolvedPath;
   if (resultItem.HasProperty("ForceResolvePlugin") &&
@@ -118,7 +127,8 @@ bool CPluginDirectory::GetResolvedPluginResult(CFileItem& resultItem)
       bool resume = resultItem.GetStartOffset() == STARTOFFSET_RESUME;
 
       // we modify the item so that it becomes a real URL
-      if (!XFILE::CPluginDirectory::GetPluginResult(lastResolvedPath, resultItem, resume) ||
+      if (!XFILE::CPluginDirectory::GetPluginResult(lastResolvedPath, resultItem, resume,
+                                                    addonType) ||
           resultItem.GetDynPath() ==
               resultItem.GetPath()) // GetPluginResult resolved to an empty path
       {
@@ -134,10 +144,13 @@ bool CPluginDirectory::GetResolvedPluginResult(CFileItem& resultItem)
   return true;
 }
 
-bool CPluginDirectory::GetPluginResult(const std::string& strPath, CFileItem &resultItem, bool resume)
+bool CPluginDirectory::GetPluginResult(const std::string& strPath,
+                                       CFileItem& resultItem,
+                                       bool resume,
+                                       ADDON::AddonType addonType)
 {
   CURL url(strPath);
-  CPluginDirectory newDir;
+  CPluginDirectory newDir(CAddonType(addonType).ToNumericString());
 
   bool success = newDir.StartScript(strPath, resume);
 
@@ -535,7 +548,9 @@ bool CPluginDirectory::IsMediaLibraryScanningAllowed(const std::string& content,
   return false;
 }
 
-bool CPluginDirectory::CheckExists(const std::string& content, const std::string& strPath)
+bool CPluginDirectory::CheckExists(const std::string& content,
+                                   const std::string& strPath,
+                                   ADDON::AddonType addonType)
 {
   if (!IsMediaLibraryScanningAllowed(content, strPath))
     return false;
@@ -544,7 +559,7 @@ bool CPluginDirectory::CheckExists(const std::string& content, const std::string
   CURL url(strPath);
   url.SetOption("kodi_action", "check_exists");
   CFileItem item;
-  return CPluginDirectory::GetPluginResult(url.Get(), item, false);
+  return CPluginDirectory::GetPluginResult(url.Get(), item, false, addonType);
 }
 
 bool CPluginDirectory::Resolve(CFileItem& item) const

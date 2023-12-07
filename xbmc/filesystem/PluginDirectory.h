@@ -10,6 +10,7 @@
 
 #include "IDirectory.h"
 #include "SortFileItem.h"
+#include "addons/addoninfo/AddonType.h"
 #include "interfaces/generic/RunningScriptsHandler.h"
 #include "threads/Event.h"
 
@@ -27,7 +28,7 @@ namespace XFILE
 class CPluginDirectory : public IDirectory, public CRunningScriptsHandler<CPluginDirectory>
 {
 public:
-  CPluginDirectory();
+  CPluginDirectory(const std::string& addonTypeStr);
   ~CPluginDirectory(void) override;
   bool GetDirectory(const CURL& url, CFileItemList& items) override;
   bool Resolve(CFileItem& item) const override;
@@ -42,8 +43,12 @@ public:
   \param resultItem the CFileItem with plugin paths to be resolved.
   \return false if the plugin path cannot be resolved, true otherwise.
   */
-  static bool GetResolvedPluginResult(CFileItem& resultItem);
-  static bool GetPluginResult(const std::string& strPath, CFileItem &resultItem, bool resume);
+  static bool GetResolvedPluginResult(CFileItem& resultItem,
+                                      ADDON::AddonType addonType = ADDON::AddonType::UNKNOWN);
+  static bool GetPluginResult(const std::string& strPath,
+                              CFileItem& resultItem,
+                              bool resume,
+                              ADDON::AddonType addonType = ADDON::AddonType::UNKNOWN);
 
   /*! \brief Check whether a plugin supports media library scanning.
   \param content content type - movies, tvshows, musicvideos.
@@ -58,7 +63,9 @@ public:
   \param strPath full plugin url.
   \return true if the plugin supports scanning and specified url exists, false otherwise.
   */
-  static bool CheckExists(const std::string& content, const std::string& strPath);
+  static bool CheckExists(const std::string& content,
+                          const std::string& strPath,
+                          ADDON::AddonType addonType = ADDON::AddonType::UNKNOWN);
 
   // callbacks from python
   static bool AddItem(int handle, const CFileItem *item, int totalItems);
@@ -86,5 +93,6 @@ private:
   std::atomic<bool> m_cancelled;
   bool m_success = false; // set by script in EndOfDirectory
   int m_totalItems = 0; // set by script in AddDirectoryItem
+  ADDON::AddonType m_addonType = ADDON::AddonType::UNKNOWN;
 };
 }

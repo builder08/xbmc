@@ -153,7 +153,12 @@ IDirectory* CDirectoryFactory::Create(const CURL& url)
 #if defined(HAS_UDFREAD)
   if (url.IsProtocol("udf")) return new CUDFDirectory();
 #endif
-  if (url.IsProtocol("plugin")) return new CPluginDirectory();
+  if (url.IsProtocol("plugin"))
+  {
+    std::string addonType;
+    url.GetOption("addonType", addonType);
+    return new CPluginDirectory(addonType);
+  }
 #if defined(TARGET_ANDROID)
   if (url.IsProtocol("apk")) return new CAPKDirectory();
 #endif
