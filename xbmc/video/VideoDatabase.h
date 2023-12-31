@@ -1008,29 +1008,31 @@ public:
                              int dbIdTarget,
                              int idVideoVersion);
   void SetDefaultVideoVersion(VideoDbContentType itemType, int dbId, int idFile);
-  void SetVideoVersion(int idFile, int idVideoVersion);
-  int AddVideoVersionType(const std::string& typeVideoVersion,
-                          VideoAssetTypeOwner owner,
-                          VideoAssetType assetType);
+  void SetVideoVersion(int idFile, int idVideoVersion, const std::string& assetName);
   void AddVideoVersion(VideoDbContentType itemType,
                        int dbId,
                        int idVideoVersion,
+                       const std::string& assetName,
                        VideoAssetType videoAssetType,
                        CFileItem& item);
   void AddPrimaryVideoVersion(VideoDbContentType itemType,
                               int dbId,
                               int idVideoVersion,
+                              const std::string& assetName,
                               CFileItem& item);
   void AddExtrasVideoVersion(VideoDbContentType itemType,
                              int dbId,
                              int idVideoVersion,
+                             const std::string& assetName,
                              CFileItem& item);
   void RemoveVideoVersion(int dbId);
   bool IsDefaultVideoVersion(int idFile);
-  bool GetVideoVersionTypes(VideoDbContentType idContent,
-                            VideoAssetType asset,
-                            CFileItemList& items);
+  bool GetUserAssetNames(VideoDbContentType idContent, VideoAssetType asset, CFileItemList& items);
   void SetVideoVersionDefaultArt(int dbId, int idFrom, VideoDbContentType type);
+  /*!
+   * \brief OBSOLETE as of VideoDB 128. Used to pre-populate the videoversiontype table.
+   * \param schemaVersion[in] Database version
+   */
   void InitializeVideoVersionTypeTable(int schemaVersion);
   void UpdateVideoVersionTypeTable();
   bool GetVideoVersionsNav(const std::string& strBaseDir,
