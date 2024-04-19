@@ -408,6 +408,8 @@ bool CDVDFileInfo::DemuxerToStreamDetails(const std::shared_ptr<CDVDInputStream>
     {
       CStreamDetailSubtitle *p = new CStreamDetailSubtitle();
       p->m_strLanguage = stream->language;
+      p->m_codec = pDemux->GetStreamCodecName(stream->demuxerId, stream->uniqueId);
+      p->m_type = "muxed";
       details.AddStream(p);
       retVal = true;
     }
@@ -476,6 +478,8 @@ bool CDVDFileInfo::AddExternalSubtitleToDetails(const std::string &path, CStream
       CStreamDetailSubtitle *dsub = new CStreamDetailSubtitle();
       std::string lang = stream->language;
       dsub->m_strLanguage = g_LangCodeExpander.ConvertToISO6392B(lang);
+      dsub->m_codec = v.GetStreamCodecName(stream->demuxerId, stream->uniqueId);
+      dsub->m_type = "external";
       details.AddStream(dsub);
     }
     return true;
@@ -490,6 +494,7 @@ bool CDVDFileInfo::AddExternalSubtitleToDetails(const std::string &path, CStream
   CStreamDetailSubtitle *dsub = new CStreamDetailSubtitle();
   ExternalStreamInfo info = CUtil::GetExternalStreamDetailsFromFilename(path, filename);
   dsub->m_strLanguage = g_LangCodeExpander.ConvertToISO6392B(info.language);
+  dsub->m_type = "external";
   details.AddStream(dsub);
 
   return true;
