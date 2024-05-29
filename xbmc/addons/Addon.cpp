@@ -283,13 +283,13 @@ CXBMCTinyXML* loadXMLFile(const std::string& id, const std::string& xmlFilename)
   if (XFILE::CFile::Stat(xmlFilename, &s) == 0)
   {
     auto found = XMLFileCache.find(xmlFilename);
-    if (found != XMLFileCache.end() &&
-        s.st_mtime <= found->second.modified)
+    if (found != XMLFileCache.end() && s.st_mtime <= found->second.modified)
     {
       auto& cachedItem = found->second;
       return &cachedItem.xml;
     }
-    else {
+    else
+    {
       auto& cachedItem = XMLFileCache[xmlFilename];
       cachedItem.modified = s.st_mtime;
 
@@ -297,8 +297,8 @@ CXBMCTinyXML* loadXMLFile(const std::string& id, const std::string& xmlFilename)
       {
         if (CFile::Exists(xmlFilename))
         {
-          CLog::Log(LOGERROR, "CAddon[{}]: unable to load: {}, Line {}\n{}", id,
-                    xmlFilename, cachedItem.xml.ErrorRow(), cachedItem.xml.ErrorDesc());
+          CLog::Log(LOGERROR, "CAddon[{}]: unable to load: {}, Line {}\n{}", id, xmlFilename,
+                    cachedItem.xml.ErrorRow(), cachedItem.xml.ErrorDesc());
       }
         XMLFileCache.erase(xmlFilename);
         return nullptr;
@@ -342,7 +342,7 @@ bool CAddon::LoadSettings(bool bForce,
   CXBMCTinyXML* doc = loadXMLFile(ID(), xmlFilename);
   if (doc == nullptr)
     return false;
-  
+
   // initialize the settings definition
   if (!GetSettings(id)->Initialize(*doc))
   {
