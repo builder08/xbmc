@@ -266,52 +266,51 @@ bool CAddon::SettingsLoaded(AddonInstanceId id /* = ADDON_SETTINGS_ID */) const
 
 namespace {
 
-  struct Item
+struct CacheItem
+{
+  time_t modified;
+  CXBMCTinyXML xml;
+};
+
+using FilenameXMLCache = std::unordered_map<std::string, CacheItem>;
+
+FilenameXMLCache XMLFileCache{};
+
+
+CXBMCTinyXML* loadXMLFile(const std::string& id, const std::string& xmlFilename)
+{
+  struct __stat64 s;
+  if (XFILE::CFile::Stat(xmlFilename, &s) == 0)
   {
-	time_t modified;
-    CXBMCTinyXML xml;
-  };
-
-  using FilenameXMLCache = std::unordered_map<std::string, Item>;
-
-  FilenameXMLCache XMLFileCache{};
-
-
-  CXBMCTinyXML* loadXMLFile(const std::string& id, const std::string& xmlFilename)
-  {
-    struct __stat64 s;
-    if (XFILE::CFile::Stat(xmlFilename, &s) == 0)
+    auto found = XMLFileCache.find(xmlFilename);
+    if (found != XMLFileCache.end() &&
+        s.st_mtime <= found->second.modified)
     {
-      auto found = XMLFileCache.find(xmlFilename);
-      if (found != XMLFileCache.end() &&
-          s.st_mtime <= found->second.modified)
+      auto& cachedItem = found->second;
+      return &cachedItem.xml;
+    }
+    else {
+      auto& cachedItem = XMLFileCache[xmlFilename];
+      cachedItem.modified = s.st_mtime;
+
+      if (!cachedItem.xml.LoadFile(xmlFilename))
       {
-        auto& cachedItem = found->second;
-        return &cachedItem.xml;
-      }
-      else {
-        auto& cachedItem = XMLFileCache[xmlFilename];
-		cachedItem.modified = s.st_mtime;
-
-        if (!cachedItem.xml.LoadFile(xmlFilename))
+        if (CFile::Exists(xmlFilename))
         {
-          if (CFile::Exists(xmlFilename))
-          {
-            CLog::Log(LOGERROR, "CAddon[{}]: unable to load: {}, Line {}\n{}", id,
-                      xmlFilename, cachedItem.xml.ErrorRow(), cachedItem.xml.ErrorDesc());
-	      }
-          XMLFileCache.erase(xmlFilename);
-          return nullptr;
-        }
-
-        return &cachedItem.xml;
+          CLog::Log(LOGERROR, "CAddon[{}]: unable to load: {}, Line {}\n{}", id,
+                    xmlFilename, cachedItem.xml.ErrorRow(), cachedItem.xml.ErrorDesc());
       }
-	}
-    return nullptr;
+        XMLFileCache.erase(xmlFilename);
+        return nullptr;
+      }
+
+      return &cachedItem.xml;
+    }
   }
-
-
+  return nullptr;
 }
+
+} // unnamed namespace
 
 bool CAddon::LoadSettings(bool bForce,
                           bool loadUserSettings,
