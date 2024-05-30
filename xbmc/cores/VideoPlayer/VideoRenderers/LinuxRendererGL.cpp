@@ -131,6 +131,9 @@ CLinuxRendererGL::CLinuxRendererGL()
   m_cmsOn = false;
 
   m_renderSystem = dynamic_cast<CRenderSystemGL*>(CServiceBroker::GetRenderSystem());
+
+  KODI::UTILS::GL::GLGenVertexArrays(1, &m_vao);
+  KODI::UTILS::GL::GLGenVertexArrays(1, &m_vaoBlackBars);
 }
 
 CLinuxRendererGL::~CLinuxRendererGL()
@@ -148,6 +151,9 @@ CLinuxRendererGL::~CLinuxRendererGL()
     delete m_pVideoFilterShader;
     m_pVideoFilterShader = nullptr;
   }
+
+  KODI::UTILS::GL::GLDeleteVertexArrays(1, &m_vao);
+  KODI::UTILS::GL::GLDeleteVertexArrays(1, &m_vaoBlackBars);
 }
 
 bool CLinuxRendererGL::ValidateRenderer()
@@ -689,6 +695,8 @@ void CLinuxRendererGL::DrawBlackBars()
     count += 6;
   }
 
+  KODI::UTILS::GL::GLBindVertexArray(m_vaoBlackBars);
+
   GLuint vertexVBO;
 
   glGenBuffers(1, &vertexVBO);
@@ -703,6 +711,8 @@ void CLinuxRendererGL::DrawBlackBars()
   glDisableVertexAttribArray(posLoc);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glDeleteBuffers(1, &vertexVBO);
+
+  KODI::UTILS::GL::GLBindVertexArray(0);
 
   m_renderSystem->DisableShader();
 }
@@ -1192,6 +1202,8 @@ void CLinuxRendererGL::RenderSinglePass(int index, int field)
   vertex[3].u3 = planes[2].rect.x1;
   vertex[3].v3 = planes[2].rect.y2;
 
+  KODI::UTILS::GL::GLBindVertexArray(m_vao);
+
   glGenBuffers(1, &vertexVBO);
   glBindBuffer(GL_ARRAY_BUFFER, vertexVBO);
   glBufferData(GL_ARRAY_BUFFER, sizeof(PackedVertex)*4, &vertex[0], GL_STATIC_DRAW);
@@ -1229,6 +1241,8 @@ void CLinuxRendererGL::RenderSinglePass(int index, int field)
   glDeleteBuffers(1, &vertexVBO);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   glDeleteBuffers(1, &indexVBO);
+
+  KODI::UTILS::GL::GLBindVertexArray(0);
 
   m_pYUVShader->Disable();
   VerifyGLState();
@@ -1403,6 +1417,8 @@ void CLinuxRendererGL::RenderToFBO(int index, int field, bool weave /*= false*/)
   vertex[3].u3 = planes[2].rect.x1;
   vertex[3].v3 = planes[2].rect.y2;
 
+  KODI::UTILS::GL::GLBindVertexArray(m_vao);
+
   glGenBuffers(1, &vertexVBO);
   glBindBuffer(GL_ARRAY_BUFFER, vertexVBO);
   glBufferData(GL_ARRAY_BUFFER, sizeof(PackedVertex)*4, &vertex[0], GL_STATIC_DRAW);
@@ -1440,6 +1456,8 @@ void CLinuxRendererGL::RenderToFBO(int index, int field, bool weave /*= false*/)
   glDeleteBuffers(1, &vertexVBO);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   glDeleteBuffers(1, &indexVBO);
+
+  KODI::UTILS::GL::GLBindVertexArray(0);
 
   m_pYUVShader->Disable();
 
@@ -1534,6 +1552,8 @@ void CLinuxRendererGL::RenderFromFBO()
   vertex[3].u1 = 0.0f;
   vertex[3].v1 = imgheight;
 
+  KODI::UTILS::GL::GLBindVertexArray(m_vao);
+
   glGenBuffers(1, &vertexVBO);
   glBindBuffer(GL_ARRAY_BUFFER, vertexVBO);
   glBufferData(GL_ARRAY_BUFFER, sizeof(PackedVertex)*4, &vertex[0], GL_STATIC_DRAW);
@@ -1560,6 +1580,8 @@ void CLinuxRendererGL::RenderFromFBO()
   glDeleteBuffers(1, &vertexVBO);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   glDeleteBuffers(1, &indexVBO);
+
+  KODI::UTILS::GL::GLBindVertexArray(0);
 
   m_pVideoFilterShader->Disable();
 
@@ -1675,6 +1697,8 @@ void CLinuxRendererGL::RenderRGB(int index, int field)
   vertex[3].u1 = plane.rect.x1;
   vertex[3].v1 = plane.rect.y2;
 
+  KODI::UTILS::GL::GLBindVertexArray(m_vao);
+
   glGenBuffers(1, &vertexVBO);
   glBindBuffer(GL_ARRAY_BUFFER, vertexVBO);
   glBufferData(GL_ARRAY_BUFFER, sizeof(PackedVertex)*4, &vertex[0], GL_STATIC_DRAW);
@@ -1697,6 +1721,8 @@ void CLinuxRendererGL::RenderRGB(int index, int field)
   glDeleteBuffers(1, &vertexVBO);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   glDeleteBuffers(1, &indexVBO);
+
+  KODI::UTILS::GL::GLBindVertexArray(0);
 
   VerifyGLState();
 
