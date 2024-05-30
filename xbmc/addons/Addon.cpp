@@ -264,7 +264,8 @@ bool CAddon::SettingsLoaded(AddonInstanceId id /* = ADDON_SETTINGS_ID */) const
   return addonSettings && addonSettings->IsLoaded();
 }
 
-namespace {
+namespace
+{
 
 struct CacheItem
 {
@@ -275,7 +276,6 @@ struct CacheItem
 using FilenameXMLCache = std::unordered_map<std::string, CacheItem>;
 
 FilenameXMLCache XMLFileCache{};
-
 
 CXBMCTinyXML* loadXMLFile(const std::string& id, const std::string& xmlFilename)
 {
@@ -299,7 +299,7 @@ CXBMCTinyXML* loadXMLFile(const std::string& id, const std::string& xmlFilename)
         {
           CLog::Log(LOGERROR, "CAddon[{}]: unable to load: {}, Line {}\n{}", id, xmlFilename,
                     cachedItem.xml.ErrorRow(), cachedItem.xml.ErrorDesc());
-      }
+        }
         XMLFileCache.erase(xmlFilename);
         return nullptr;
       }
