@@ -264,53 +264,58 @@ bool CAddon::SettingsLoaded(AddonInstanceId id /* = ADDON_SETTINGS_ID */) const
   return addonSettings && addonSettings->IsLoaded();
 }
 
-namespace
+class FilenameXMLCache 
 {
+public:
+	const CXBMCTinyXML* loadXMLFile(const std::string& id, const std::string& xmlFilename)
+	{
+	  struct __stat64 s;
+	  if (XFILE::CFile::Stat(xmlFilename, &s) == 0)
+	  {
+		auto found = XMLFileCache.find(xmlFilename);
+		if (found != XMLFileCache.end() && s.st_mtime <= found->second.modified)
+		{
+		  auto& cachedItem = found->second;
+		  return &cachedItem.xml;
+		}
+		else
+		{
+		  auto& cachedItem = XMLFileCache[xmlFilename];
+		  cachedItem.modified = s.st_mtime;
 
-struct CacheItem
-{
-  time_t modified;
-  CXBMCTinyXML xml;
+		  if (!cachedItem.xml.LoadFile(xmlFilename))
+		  {
+			if (CFile::Exists(xmlFilename))
+			{
+			  CLog::Log(LOGERROR, "CAddon[{}]: unable to load: {}, Line {}\n{}", id, xmlFilename,
+						cachedItem.xml.ErrorRow(), cachedItem.xml.ErrorDesc());
+			}
+			XMLFileCache.erase(xmlFilename);
+			return nullptr;
+		  }
+
+		  return &cachedItem.xml;
+		}
+	  }
+	  return nullptr;
+	}
+
+private:
+
+	struct CacheItem
+	{
+	  time_t modified;
+	  CXBMCTinyXML xml;
+	};
+
+	std::unordered_map<std::string, CacheItem> XMLFileCache{};
 };
 
-using FilenameXMLCache = std::unordered_map<std::string, CacheItem>;
-
-FilenameXMLCache XMLFileCache{};
-
-CXBMCTinyXML* loadXMLFile(const std::string& id, const std::string& xmlFilename)
+const CXBMCTinyXML* loadXMLFile(const std::string& id, const std::string& xmlFilename)
 {
-  struct __stat64 s;
-  if (XFILE::CFile::Stat(xmlFilename, &s) == 0)
-  {
-    auto found = XMLFileCache.find(xmlFilename);
-    if (found != XMLFileCache.end() && s.st_mtime <= found->second.modified)
-    {
-      auto& cachedItem = found->second;
-      return &cachedItem.xml;
-    }
-    else
-    {
-      auto& cachedItem = XMLFileCache[xmlFilename];
-      cachedItem.modified = s.st_mtime;
-
-      if (!cachedItem.xml.LoadFile(xmlFilename))
-      {
-        if (CFile::Exists(xmlFilename))
-        {
-          CLog::Log(LOGERROR, "CAddon[{}]: unable to load: {}, Line {}\n{}", id, xmlFilename,
-                    cachedItem.xml.ErrorRow(), cachedItem.xml.ErrorDesc());
-        }
-        XMLFileCache.erase(xmlFilename);
-        return nullptr;
-      }
-
-      return &cachedItem.xml;
-    }
-  }
-  return nullptr;
+	static FilenameXMLCache cache;
+	return cache.loadXMLFile(id, xmlFilename);
 }
-
-} // unnamed namespace
 
 bool CAddon::LoadSettings(bool bForce,
                           bool loadUserSettings,
@@ -339,7 +344,7 @@ bool CAddon::LoadSettings(bool bForce,
 
   // load the settings definition XML file
   const auto xmlFilename = m_settings[id].m_addonSettingsPath;
-  CXBMCTinyXML* doc = loadXMLFile(ID(), xmlFilename);
+  const CXBMCTinyXML* doc = loadXMLFile(ID(), xmlFilename);
   if (doc == nullptr)
     return false;
 
@@ -396,7 +401,7 @@ bool CAddon::LoadUserSettings(AddonInstanceId id /* = ADDON_SETTINGS_ID */)
   }
 
   const auto xmlFilename = data.m_userSettingsPath;
-  CXBMCTinyXML* doc = loadXMLFile(ID(), xmlFilename);
+  const CXBMCTinyXML* doc = loadXMLFile(ID(), xmlFilename);
   if (doc == nullptr)
     return false;
   return SettingsFromXML(*doc, false, id);
