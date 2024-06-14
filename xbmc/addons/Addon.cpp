@@ -272,15 +272,15 @@ public:
 	  struct __stat64 s;
 	  if (XFILE::CFile::Stat(xmlFilename, &s) == 0)
 	  {
-		auto found = XMLFileCache.find(xmlFilename);
-		if (found != XMLFileCache.end() && s.st_mtime <= found->second.modified)
+		auto found = cache.find(xmlFilename);
+		if (found != cache.end() && s.st_mtime <= found->second.modified)
 		{
 		  auto& cachedItem = found->second;
 		  return &cachedItem.xml;
 		}
 		else
 		{
-		  auto& cachedItem = XMLFileCache[xmlFilename];
+		  auto& cachedItem = cache[xmlFilename];
 		  cachedItem.modified = s.st_mtime;
 
 		  if (!cachedItem.xml.LoadFile(xmlFilename))
@@ -290,7 +290,7 @@ public:
 			  CLog::Log(LOGERROR, "CAddon[{}]: unable to load: {}, Line {}\n{}", id, xmlFilename,
 						cachedItem.xml.ErrorRow(), cachedItem.xml.ErrorDesc());
 			}
-			XMLFileCache.erase(xmlFilename);
+			cache.erase(xmlFilename);
 			return nullptr;
 		  }
 
@@ -308,7 +308,7 @@ private:
 	  CXBMCTinyXML xml;
 	};
 
-	std::unordered_map<std::string, CacheItem> XMLFileCache{};
+	std::unordered_map<std::string, CacheItem> cache;
 };
 
 const CXBMCTinyXML* loadXMLFile(const std::string& id, const std::string& xmlFilename)
