@@ -30,7 +30,6 @@
 #include "video/guilib/VideoGUIUtils.h"
 #include "video/guilib/VideoPlayActionProcessor.h"
 #include "video/guilib/VideoSelectActionProcessor.h"
-#include "video/guilib/VideoVersionHelper.h"
 
 #include <utility>
 
@@ -226,7 +225,6 @@ enum class PlayMode
 {
   PLAY,
   PLAY_USING,
-  PLAY_VERSION_USING,
   RESUME,
 };
 
@@ -255,19 +253,8 @@ void SetPathAndPlay(const std::shared_ptr<CFileItem>& item, PlayMode mode)
       }
     }
 
-    if (mode == PlayMode::PLAY_VERSION_USING)
-    {
-      // force video version selection dialog
-      itemCopy->SetProperty("needs_resolved_video_asset", true);
-    }
-    else
-    {
-      // play the given/default video version, if multiple versions are available
-      itemCopy->SetProperty("has_resolved_video_asset", true);
-    }
-
     KODI::VIDEO::GUILIB::CVideoPlayActionProcessor proc{itemCopy};
-    if (mode == PlayMode::PLAY_USING || mode == PlayMode::PLAY_VERSION_USING)
+    if (mode == PlayMode::PLAY_USING)
       proc.SetChoosePlayer();
 
     if (mode == PlayMode::RESUME && (itemCopy->GetStartOffset() == STARTOFFSET_RESUME ||
