@@ -167,7 +167,7 @@ bool CGUIDialogSimpleMenu::GetItems(const CFileItem& item,
   }
 
   // Remove playlists that are already used
-  if (excludePlaylists.has_value())
+  if (!item.m_multipleTitles && excludePlaylists.has_value())
   {
     for (const int playlist : *excludePlaylists)
       items.erase(std::remove_if(items.begin(), items.end(),
