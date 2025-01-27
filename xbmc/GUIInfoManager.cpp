@@ -7135,6 +7135,14 @@ const infomap container_str[]  = {{ "property",         CONTAINER_PROPERTY },
 ///     @skinning_v22 **[New Infolabel]** \link ListItem_TitleExtraInfo `ListItem.TitleExtraInfo`\endlink
 ///     <p>
 ///   }
+///   \table_row3{   <b>`ListItem.IsVideoAsset`</b>,
+///                  \anchor ListItem_IsVideoAsset
+///                  _boolean_,
+///     @return **True** when the selected item is a video asset (for example, a specific movie version or an extra).
+///     <p><hr>
+///     @skinning_v22 **[New Infolabel]** \link ListItem_IsVideoAsset `ListItem.IsVideoAsset`\endlink
+///   }
+
 /// \table_end
 ///
 /// -----------------------------------------------------------------------------
@@ -7365,6 +7373,7 @@ const infomap listitem_labels[]= {{ "thumb",            LISTITEM_THUMB },
                                   { "episodepart",      LISTITEM_EPISODEPART },
                                   { "mediaproviders",   LISTITEM_MEDIAPROVIDERS },
                                   { "titleextrainfo",   LISTITEM_TITLE_EXTRAINFO },
+                                  { "isvideoasset",     LISTITEM_ISVIDEOASSET },
 };
 // clang-format on
 

@@ -29,7 +29,6 @@
 #include "video/VideoFileItemClassify.h"
 #include "video/VideoUtils.h"
 #include "video/guilib/VideoGUIUtils.h"
-#include "video/guilib/VideoVersionHelper.h"
 
 namespace KODI::VIDEO::GUILIB
 {
@@ -48,15 +47,6 @@ bool CVideoPlayActionProcessor::ProcessDefaultAction()
 bool CVideoPlayActionProcessor::ProcessAction(Action action)
 {
   m_userCancelled = false;
-
-  const auto movie{CVideoVersionHelper::ChooseVideoFromAssets(m_item)};
-  if (movie)
-    m_item = movie;
-  else
-  {
-    m_userCancelled = true;
-    return true; // User cancelled the select menu. We're done.
-  }
 
   if (m_chooseStackPart)
   {
