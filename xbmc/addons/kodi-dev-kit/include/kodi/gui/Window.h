@@ -164,7 +164,7 @@ public:
   /// closed. The creation can be done before "Show" becomes called, but
   /// not delete class after them.
   ///
-  /// @return Return true if call and show is successed, if false was something
+  /// @return Return true if call and show is successful, if false was something
   /// failed to get needed skin parts.
   ///
   bool Show()
@@ -198,7 +198,7 @@ public:
   /// @brief Gives the control with the supplied focus.
   ///
   /// @param[in] controlId On skin defined id of control
-  /// @return Return true if call and focus is successed, if false was something
+  /// @return Return true if call and focus is successful, if false was something
   /// failed to get needed skin parts
   ///
   bool SetFocusId(int controlId)

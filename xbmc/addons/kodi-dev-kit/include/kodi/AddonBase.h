@@ -558,7 +558,7 @@ private:
  *
  * Mainly is this currently used to identify requested instance types.
  *
- * @note This class is not need to know during add-on development thats why
+ * @note This class is not necessary to know during add-on development hence
  * commented with "*".
  */
 class ATTR_DLL_LOCAL IAddonInstance
@@ -878,7 +878,7 @@ public:
   /// @ingroup cpp_kodi_addon_addonbase
   /// @brief Instance created
   ///
-  /// @param[in] instance Instance informations about
+  /// @param[in] instance Instance information about
   /// @param[out] hdl The pointer to instance class created in addon.
   ///                 Needed to be able to identify them on calls.
   /// @return @ref ADDON_STATUS_OK if correct, for possible errors see @ref ADDON_STATUS
@@ -935,7 +935,7 @@ public:
   /// This function is optional and intended to notify addon that the instance
   /// is terminating.
   ///
-  /// @param[in] instance Instance informations about
+  /// @param[in] instance Instance information about
   /// @param[in] hdl The pointer to instance class created in addon.
   ///
   /// @warning This call is only used to inform that the associated instance
