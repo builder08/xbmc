@@ -557,9 +557,6 @@ private:
  * here.
  *
  * Mainly is this currently used to identify requested instance types.
- *
- * @note This class is not necessary to know during add-on development hence
- * commented with "*".
  */
 class ATTR_DLL_LOCAL IAddonInstance
 {
